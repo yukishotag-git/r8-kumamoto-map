@@ -26,7 +26,7 @@
 <style>
   :root{
     --c-main:#2c6e49; --c-accent:#d94f30; --c-bg:#f5f4f0; --c-card:#ffffff;
-    --c-text:#333; --c-sub:#777; --c-border:#e0ddd5;
+    --c-text:#333; --c-sub:#777; --c-border:#e0ddd5; --c-help:#7b3fa0;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   html,body{height:100%;}
@@ -46,10 +46,10 @@
   .tabBtn{border:1px solid rgba(255,255,255,.5); background:transparent; color:#fff; border-radius:16px; padding:5px 14px; font-size:.85rem; cursor:pointer;}
   .tabBtn.active{background:#fff; color:var(--c-main); font-weight:700; border-color:#fff;}
   #linksView, #feedView, #helpView, #authorView, #wallView{display:none; flex:1; overflow-y:auto; padding:14px; max-width:640px; margin:0 auto; width:100%;}
-  .tabBtn.help{border-color:#ffb3a0;}
-  .tabBtn.help.active{background:var(--c-accent); color:#fff; border-color:var(--c-accent);}
+  .tabBtn.help{border-color:#c9a6e0;}
+  .tabBtn.help.active{background:var(--c-help); color:#fff; border-color:var(--c-help);}
   .hstatus{font-size:.72rem; font-weight:700; border-radius:10px; padding:2px 8px; color:#fff;}
-  .st-open{background:var(--c-accent);}
+  .st-open{background:var(--c-help);}
   .st-resolved{background:#2c6e49;}
   .st-closed{background:#999;}
   .hcat{font-size:.72rem; background:#eee; border-radius:10px; padding:2px 8px; color:#555;}
@@ -210,7 +210,7 @@
       <div id="genreChips"></div>
       <button id="addSpotBtn">＋ 新しい拠点を地図に追加</button>
       <div style="font-size:.7rem; color:var(--c-sub); margin-top:6px;">
-        ピンの色は<b>最新投稿の内容</b>で変わります（緑=平常・利用可／黄=支援情報あり／赤=危険・利用不可）。小さい緑は投稿がまだない施設です。
+        ピンの色は<b>最新投稿の内容</b>で変わります（小さい緑=未投稿／黄=支援情報あり／赤=危険・利用不可／紫=🆘ヘルプ）。
         施設データはOpenStreetMapとOverture Maps。公式情報は右上の「☰」メニューから。
         載っていない施設は「＋新しい拠点を地図に追加」で登録できます。
       </div>
@@ -278,8 +278,8 @@
 </div>
 
 <div id="helpView">
-  <div class="card" style="border-left:4px solid var(--c-accent); margin-bottom:12px;">
-    <h2 style="font-size:.95rem; margin-bottom:8px;">🆘 緊急ヘルプを投稿</h2>
+  <div class="card" style="border-left:4px solid var(--c-help); margin-bottom:12px;">
+    <h2 style="font-size:.95rem; margin-bottom:8px; color:var(--c-help);">🆘 緊急ヘルプを投稿</h2>
     <textarea id="helpText" maxlength="500" placeholder="困っていること・探しているもの（例：粉ミルクが手に入りません。松橋周辺で入手できる場所を知りませんか？）"></textarea>
     <div class="formRow" style="display:flex; gap:8px;">
       <select id="helpCat" style="flex:1;"></select>
@@ -293,7 +293,7 @@
       <div style="margin-top:4px;">※位置を付けるとマップに🆘（黄色）で表示され、近くの人が気づきやすくなります。</div>
     </div>
     <div class="formRow" style="text-align:right;">
-      <button class="btn" id="helpSubmit" style="background:var(--c-accent);">投稿する</button>
+      <button class="btn" id="helpSubmit" style="background:var(--c-help);">投稿する</button>
     </div>
   </div>
   <input id="helpSearch" type="search" placeholder="投稿を検索（例：水 オムツ シャワー エアコン）">
@@ -384,11 +384,11 @@ const GENRES = {
   bath:   {label:"入浴・温泉",       emoji:"♨️", color:"#e0715a"},
   road:   {label:"道路規制・通行止め", emoji:"🚧", color:"#7b241c"},
   other:  {label:"その他",           emoji:"📍", color:"#b9564a"},
-  helpreq:{label:"ヘルプ（困っています）", emoji:"🆘", color:"#f1c40f"}
+  helpreq:{label:"ヘルプ（困っています）", emoji:"🆘", color:"#7b3fa0"}
 };
 /* ピンの色：最新投稿の内容で判定した状況を表す
    赤=利用できない/困難、黄=注意・要確認、緑=利用できそう、淡緑(小)=投稿なし、黄(角丸)=ヘルプ */
-const STATUS_COLORS = {bad:"#d62828", warn:"#f4b400", good:"#2e9e4f", none:"#4c9a68", help:"#f4b400"};
+const STATUS_COLORS = {bad:"#d62828", warn:"#f4b400", none:"#4c9a68", help:"#7b3fa0"};
 const MIN = 60*1000, HOUR = 60*MIN;
 
 /* ================= 状態（表示用データはここに集約） ================= */
@@ -467,10 +467,9 @@ legendCtl.onAdd = ()=>{
   const item = (color, label, extra="") =>
     `<span class="lgItem"><i style="background:${color};${extra}"></i>${label}</span>`;
   d.innerHTML =
-    item(STATUS_COLORS.good, "平常・利用可") +
+    item(STATUS_COLORS.none, "未投稿", "width:9px;height:9px;") +
     item(STATUS_COLORS.warn, "支援情報あり") +
     item(STATUS_COLORS.bad, "危険・利用不可") +
-    item(STATUS_COLORS.none, "投稿なし", "width:9px;height:9px;") +
     item(STATUS_COLORS.help, "🆘ヘルプ", "border-radius:3px;");
   L.DomEvent.disableClickPropagation(d);
   return d;
@@ -484,16 +483,11 @@ const markerLayer = L.layerGroup().addTo(map);
 const DANGER = ["通行止","全面通行止","片側","封鎖","停電","断水","漏水","ガス漏れ","火災","倒壊","崩落","土砂",
   "陥没","亀裂","浸水","危険","立入禁止","立ち入り禁止","閉鎖","閉店","休業","休み","閉まって","使えない",
   "利用できません","入れない","中止","売り切れ","品切れ","在庫なし","完売","満車","満員","満床","受入不可","不可"];
-// 緑：平常・利用できる情報
-const OK = ["営業","開いて","開店","通常","再開","平常","利用できます","使えます","復旧","通行できます",
-  "空いて","問題なし","異常なし"];
-
 function statusOf(spotId){
   const posts = spotPosts(spotId);
-  if(!posts.length) return "none";                   // 投稿なし → 緑（小）
+  if(!posts.length) return "none";                       // 緑（小）：まだ投稿がない
   const latest = [...posts].sort((a,b)=>b.time - a.time)[0].text || "";
-  if(DANGER.some(w=>latest.includes(w))) return "bad";   // 赤：危険情報
-  if(OK.some(w=>latest.includes(w))) return "good";      // 緑：利用できる
+  if(DANGER.some(w=>latest.includes(w))) return "bad";   // 赤：危険・利用不可
   return "warn";                                         // 黄：支援情報あり
 }
 
@@ -562,7 +556,7 @@ function renderMarkers(){
           L.popup({offset:[0,-14]}).setLatLng([h.lat, h.lng])
             .setContent(`<b>🆘 ${esc(h.category)}</b><br>${esc(h.text.slice(0,120))}` +
               `<br><span style="color:#777;font-size:.8em;">${esc(h.name)||"匿名"}｜${rel(h.time)}</span>` +
-              `<br><a href="#" id="popHelpOpen" style="color:var(--c-accent);">→ ヘルプ画面で返信する</a>`)
+              `<br><a href="#" id="popHelpOpen" style="color:var(--c-help);">→ ヘルプ画面で返信する</a>`)
             .openOn(map);
           setTimeout(()=>{
             const a = document.getElementById("popHelpOpen");
