@@ -14,9 +14,17 @@ const GROUPS = {
 };
 
 const ENDPOINTS = [
+  "https://overpass.osm.jp/api/interpreter",          // 日本サーバー（国内データ向き）
   "https://overpass-api.de/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter"
 ];
+const HEADERS = {
+  "Content-Type": "application/x-www-form-urlencoded",
+  "Accept": "application/json",
+  "User-Agent": "r8-kumamoto-map/1.0 (+https://r8kumamoto.promate2.com; disaster-info site; contact: yukishota.g@gmail.com)"
+};
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 function buildQuery(munis){
@@ -43,13 +51,13 @@ function genreFromTags(t){
 async function fetchGroup(munis){
   const q = buildQuery(munis);
   let lastErr;
-  for(let attempt = 0; attempt < 6; attempt++){
+  for(let attempt = 0; attempt < 10; attempt++){
     const url = ENDPOINTS[attempt % ENDPOINTS.length];
     try{
-      if(attempt > 0) await sleep(30000);
+      if(attempt > 0) await sleep(20000);
       const res = await fetch(url, {
         method: "POST",
-        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        headers: HEADERS,
         body: "data=" + encodeURIComponent(q)
       });
       if(!res.ok) throw new Error("HTTP " + res.status);
