@@ -49,11 +49,19 @@ const db = getFirestore(app);
 // 概略範囲：南32.40 西130.42 北32.84 東130.95
 const BB = "32.40,130.42,32.84,130.95";
 const GROUPS = {
-  bousai: {genre:"bousai", q:`nwr["amenity"~"^(townhall|community_centre)$"](${BB});nwr["leisure"="sports_centre"](${BB});`},
-  medical:{genre:"medical", q:`nwr["amenity"~"^(hospital|clinic)$"](${BB});`},
-  gas:    {genre:"gas", q:`nwr["amenity"="fuel"](${BB});`},
-  super:  {genre:"super", q:`nwr["shop"~"^(supermarket|convenience|chemist)$"](${BB});`}
+  bousai: `nwr["amenity"~"^(townhall|community_centre)$"](${BB});nwr["leisure"="sports_centre"](${BB});`,
+  medical:`nwr["amenity"~"^(hospital|clinic)$"](${BB});`,
+  gas:    `nwr["amenity"="fuel"](${BB});`,
+  super:  `nwr["shop"~"^(supermarket|convenience|chemist)$"](${BB});`
 };
+function genreFromTags(t){
+  if(t.amenity==="townhall" || t.amenity==="community_centre" || t.leisure==="sports_centre") return "bousai";
+  if(t.amenity==="hospital" || t.amenity==="clinic") return "medical";
+  if(t.amenity==="fuel") return "gas";
+  if(t.shop==="supermarket" || t.shop==="convenience" || t.shop==="chemist") return "super";
+  return "other";
+}
+const sleep = ms => new Promise(r=>setTimeout(r, ms));
 
 const logEl = document.getElementById("log");
 function log(msg){ logEl.textContent += "\n" + msg; }
@@ -61,33 +69,46 @@ function selectedKeys(){ return Object.keys(GROUPS).filter(k=>document.getElemen
 
 let candidates = [];
 
-async function fetchGroup(key){
-  const g = GROUPS[key];
-  const q = `[out:json][timeout:60];(${g.q});out center 1500;`;
-  const res = await fetch("https://overpass-api.de/api/interpreter", {
-    method:"POST",
-    headers:{"Content-Type":"application/x-www-form-urlencoded"},
-    body:"data=" + encodeURIComponent(q)
-  });
-  if(!res.ok) throw new Error("Overpass HTTP " + res.status);
-  const json = await res.json();
-  return (json.elements || []).map(el=>{
-    const lat = el.lat !== undefined ? el.lat : (el.center && el.center.lat);
-    const lng = el.lon !== undefined ? el.lon : (el.center && el.center.lon);
-    const name = (el.tags && (el.tags.name || el.tags.brand)) || null;
-    return {osmId:"osm-"+el.type+"-"+el.id, name, genre:g.genre, lat, lng};
-  }).filter(s=>s.name && typeof s.lat==="number" && typeof s.lng==="number");
+const ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter"
+];
+
+// 選択ジャンルを1回のリクエストにまとめ、429時は待機・別サーバーで再試行
+async function fetchAll(keys){
+  const q = `[out:json][timeout:120];(${keys.map(k=>GROUPS[k]).join("")});out center 3000;`;
+  let lastErr = null;
+  for(let attempt = 0; attempt < 4; attempt++){
+    const url = ENDPOINTS[attempt % ENDPOINTS.length];
+    try{
+      if(attempt > 0){ log(`再試行 ${attempt}/3（30秒待機中…）`); await sleep(30000); }
+      const res = await fetch(url, {
+        method:"POST",
+        headers:{"Content-Type":"application/x-www-form-urlencoded"},
+        body:"data=" + encodeURIComponent(q)
+      });
+      if(!res.ok) throw new Error("Overpass HTTP " + res.status);
+      const json = await res.json();
+      return (json.elements || []).map(el=>{
+        const lat = el.lat !== undefined ? el.lat : (el.center && el.center.lat);
+        const lng = el.lon !== undefined ? el.lon : (el.center && el.center.lon);
+        const t = el.tags || {};
+        const name = t.name || t.brand || null;
+        return {osmId:"osm-"+el.type+"-"+el.id, name, genre:genreFromTags(t), lat, lng};
+      }).filter(s=>s.name && s.genre!=="other" && typeof s.lat==="number" && typeof s.lng==="number");
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr;
 }
 
 document.getElementById("preview").onclick = async ()=>{
   logEl.textContent = "取得中…（数十秒かかることがあります）";
   candidates = [];
   try{
-    for(const key of selectedKeys()){
-      const list = await fetchGroup(key);
-      log(`${key}: ${list.length}件`);
-      candidates = candidates.concat(list);
-    }
+    candidates = await fetchAll(selectedKeys());
+    const counts = {};
+    candidates.forEach(c=>counts[c.genre] = (counts[c.genre]||0)+1);
+    Object.entries(counts).forEach(([g,n])=>log(`${g}: ${n}件`));
     // 既存拠点のosmIdを取得して重複除外
     const snap = await getDocs(collection(db, "spots"));
     const existing = new Set(snap.docs.map(d=>d.data().osmId).filter(Boolean));

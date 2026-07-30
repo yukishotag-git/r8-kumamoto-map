@@ -78,7 +78,12 @@
       <input id="searchBox" type="search" placeholder="フリーワード検索（例：おにぎり おむつ ミルク）">
       <div id="genreChips"></div>
       <button id="addSpotBtn">＋ 新しい拠点を地図に追加</button>
-      <div style="font-size:.7rem; color:var(--c-sub); margin-top:6px;">薄い印は地図データ（OpenStreetMap）由来の施設です。タップして投稿すると共有拠点になります。</div>
+      <div style="font-size:.7rem; color:var(--c-sub); margin-top:6px;">薄い印は地図データ（OpenStreetMap）由来の施設です。タップして投稿すると共有拠点になります。通行止めを見つけたら「＋新しい拠点」→🚧道路規制で共有してください。</div>
+      <div style="font-size:.72rem; margin-top:6px;">公式の道路情報：
+        <a href="https://www.jartic.or.jp/" target="_blank" rel="noopener">JARTIC</a> ／
+        <a href="https://www.qsr.mlit.go.jp/bousai_joho/tecforce/access.html" target="_blank" rel="noopener">九州通れるマップ</a> ／
+        <a href="https://www.pref.kumamoto.jp/soshiki/102/247195.html" target="_blank" rel="noopener">熊本県道路情報</a>
+      </div>
     </div>
     <div id="panels">
       <div id="detailCard" class="card">
@@ -142,6 +147,7 @@ const GENRES = {
   bousai: {label:"防災拠点・避難所", emoji:"🏫", color:"#27ae60"},
   water:  {label:"給水所",           emoji:"🚰", color:"#16a085"},
   medical:{label:"医療機関",         emoji:"🏥", color:"#c0392b"},
+  road:   {label:"道路規制・通行止め", emoji:"🚧", color:"#8e44ad"},
   other:  {label:"その他",           emoji:"📍", color:"#7f8c8d"}
 };
 const MIN = 60*1000, HOUR = 60*MIN;
