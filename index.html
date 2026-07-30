@@ -17,6 +17,16 @@
   header h1{font-size:1.05rem; font-weight:700;}
   header .note{font-size:.7rem; opacity:.85;}
   #demoBanner{display:none; background:#e67e22; color:#fff; font-size:.75rem; padding:5px 12px; text-align:center;}
+  #tabs{margin-left:auto; display:flex; gap:6px;}
+  .tabBtn{border:1px solid rgba(255,255,255,.5); background:transparent; color:#fff; border-radius:16px; padding:5px 14px; font-size:.85rem; cursor:pointer;}
+  .tabBtn.active{background:#fff; color:var(--c-main); font-weight:700; border-color:#fff;}
+  #linksView{display:none; flex:1; overflow-y:auto; padding:14px; max-width:640px; margin:0 auto; width:100%;}
+  .linkGroup{margin-bottom:18px;}
+  .linkGroup h2{font-size:.95rem; margin-bottom:8px; color:var(--c-main);}
+  .linkCard{display:flex; justify-content:space-between; align-items:center; background:var(--c-card); border:1px solid var(--c-border); border-radius:10px; padding:15px 16px; margin-bottom:8px; text-decoration:none; color:var(--c-text); font-size:.95rem;}
+  .linkCard:active{background:#eee;}
+  .linkCard .arrow{color:var(--c-sub);}
+  .linkCard .sub{display:block; font-size:.72rem; color:var(--c-sub); margin-top:3px;}
   #layout{flex:1; display:flex; min-height:0;}
   #map{flex:1; min-height:0;}
   #sidebar{width:400px; max-width:45%; background:var(--c-bg); border-left:1px solid var(--c-border); display:flex; flex-direction:column; min-height:0;}
@@ -64,6 +74,10 @@
 <header>
   <h1>令和8年熊本地震 生活情報マップ</h1>
   <span class="note">ログイン不要・みんなで情報を共有するマップです</span>
+  <nav id="tabs">
+    <button class="tabBtn active" id="tabMap">🗺 マップ</button>
+    <button class="tabBtn" id="tabLinks">🏛 公式リンク集</button>
+  </nav>
 </header>
 <div id="demoBanner">⚠ デモモード：Firebase未設定のため、投稿はこの画面内のみで保存されません。</div>
 
@@ -78,12 +92,7 @@
       <input id="searchBox" type="search" placeholder="フリーワード検索（例：おにぎり おむつ ミルク）">
       <div id="genreChips"></div>
       <button id="addSpotBtn">＋ 新しい拠点を地図に追加</button>
-      <div style="font-size:.7rem; color:var(--c-sub); margin-top:6px;">薄い印はまだ投稿のない施設です（施設データ: OpenStreetMap）。タップすると最新状況の閲覧・投稿ができます。通行止めを見つけたら「＋新しい拠点」→🚧道路規制で共有してください。</div>
-      <div style="font-size:.72rem; margin-top:6px;">公式の道路情報：
-        <a href="https://www.jartic.or.jp/" target="_blank" rel="noopener">JARTIC</a>（開いたら「九州・沖縄」→「熊本」を選択）／
-        <a href="https://www.qsr.mlit.go.jp/bousai_joho/tecforce/access.html" target="_blank" rel="noopener">九州通れるマップ</a> ／
-        <a href="https://www.pref.kumamoto.jp/soshiki/102/247195.html" target="_blank" rel="noopener">熊本県道路情報</a>
-      </div>
+      <div style="font-size:.7rem; color:var(--c-sub); margin-top:6px;">薄い印はまだ投稿のない施設です（施設データ: OpenStreetMap）。タップすると最新状況の閲覧・投稿ができます。通行止めを見つけたら「＋新しい拠点」→🚧道路規制で共有してください。公式情報は上の「🏛 公式リンク集」へ。</div>
     </div>
     <div id="panels">
       <div id="detailCard" class="card">
@@ -105,6 +114,22 @@
       </div>
     </div>
   </div>
+</div>
+
+<div id="linksView">
+  <div class="linkGroup">
+    <h2>🏛 役場の緊急・防災情報</h2>
+    <a class="linkCard" href="https://www.city.uki.kumamoto.jp/toppage/kinkyu" target="_blank" rel="noopener"><span>宇城市 緊急情報<span class="sub">city.uki.kumamoto.jp</span></span><span class="arrow">›</span></a>
+    <a class="linkCard" href="https://www.city.yatsushiro.lg.jp/bousai/default.html" target="_blank" rel="noopener"><span>八代市 防災情報<span class="sub">city.yatsushiro.lg.jp</span></span><span class="arrow">›</span></a>
+    <a class="linkCard" href="https://www.town.hikawa.kumamoto.jp/kinkyu.html" target="_blank" rel="noopener"><span>氷川町 緊急情報<span class="sub">town.hikawa.kumamoto.jp</span></span><span class="arrow">›</span></a>
+  </div>
+  <div class="linkGroup">
+    <h2>🚧 道路情報</h2>
+    <a class="linkCard" href="https://www.jartic.or.jp/" target="_blank" rel="noopener"><span>JARTIC 道路交通情報<span class="sub">開いたら「九州・沖縄」→「熊本」を選択</span></span><span class="arrow">›</span></a>
+    <a class="linkCard" href="https://www.qsr.mlit.go.jp/bousai_joho/tecforce/access.html" target="_blank" rel="noopener"><span>九州通れるマップ（国土交通省）<span class="sub">qsr.mlit.go.jp</span></span><span class="arrow">›</span></a>
+    <a class="linkCard" href="https://www.pref.kumamoto.jp/soshiki/102/247195.html" target="_blank" rel="noopener"><span>熊本県 道路情報<span class="sub">pref.kumamoto.jp</span></span><span class="arrow">›</span></a>
+  </div>
+  <div style="font-size:.72rem; color:var(--c-sub);">リンク先はいずれも各機関の公式サイトです。掲載追加のご要望は運営まで。</div>
 </div>
 
 <footer>
@@ -397,6 +422,18 @@ document.getElementById("modalOk").onclick = async (e)=>{
 document.getElementById("searchBox").addEventListener("input", e=>{
   searchText = e.target.value; refresh();
 });
+
+/* ================= タブ切替（マップ／公式リンク集） ================= */
+function showTab(which){
+  const isMap = which === "map";
+  document.getElementById("layout").style.display = isMap ? "flex" : "none";
+  document.getElementById("linksView").style.display = isMap ? "none" : "block";
+  document.getElementById("tabMap").classList.toggle("active", isMap);
+  document.getElementById("tabLinks").classList.toggle("active", !isMap);
+  if(isMap) setTimeout(()=>map.invalidateSize(), 100);
+}
+document.getElementById("tabMap").onclick = ()=>showTab("map");
+document.getElementById("tabLinks").onclick = ()=>showTab("links");
 
 /* ================= 静的スポットデータの読み込み =================
    拠点データはGitHub Actionsが生成する data/spots/*.json から取得。
