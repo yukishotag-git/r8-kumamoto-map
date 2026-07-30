@@ -3,154 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>デフォルト拠点 一括登録ツール</title>
+<title>このツールは廃止されました</title>
 <style>
-  body{font-family:"Hiragino Sans","Yu Gothic","Meiryo",sans-serif; max-width:640px; margin:20px auto; padding:0 14px; color:#333;}
-  h1{font-size:1.15rem;}
-  .box{border:1px solid #ddd; border-radius:10px; padding:14px; margin-top:12px; background:#fafaf8;}
-  label{display:block; padding:6px 0; font-size:.95rem;}
-  button{padding:10px 18px; border:none; border-radius:8px; background:#2c6e49; color:#fff; font-size:1rem; cursor:pointer; margin-top:10px;}
-  button:disabled{opacity:.5;}
-  #log{white-space:pre-wrap; font-size:.85rem; background:#222; color:#9f9; padding:10px; border-radius:8px; margin-top:12px; min-height:80px;}
-  .warn{font-size:.8rem; color:#a33; margin-top:8px;}
+  body{font-family:"Hiragino Sans","Yu Gothic","Meiryo",sans-serif; max-width:560px; margin:60px auto; padding:0 16px; color:#333;}
+  .box{border:1px solid #e0ddd5; border-radius:10px; padding:20px; background:#fafaf8;}
+  a{color:#2c6e49;}
 </style>
 </head>
 <body>
-<h1>デフォルト拠点 一括登録ツール</h1>
-<p style="font-size:.88rem;">対象範囲：熊本県のほぼ全域（<b>阿蘇市・阿蘇郡・玉名郡・山鹿市を除く</b>）。市町村単位で正確に指定しています。OpenStreetMapから施設を取得し、生活情報マップの共有拠点として登録します。登録済み（同じOSM ID）の施設はスキップされるため、何度実行しても重複しません。</p>
-
 <div class="box">
-  <label><input type="checkbox" id="g_bousai" checked> 🏫 防災拠点候補（役場・市役所・公民館・体育館）</label>
-  <label><input type="checkbox" id="g_medical" checked> 🏥 医療機関（病院・診療所）</label>
-  <label><input type="checkbox" id="g_gas" checked> ⛽ ガソリンスタンド</label>
-  <label><input type="checkbox" id="g_super"> 🛒 スーパー・コンビニ・ドラッグストア（件数が多いので任意）</label>
-  <button id="preview">1. 件数を確認（プレビュー）</button>
-  <button id="register" disabled>2. Firestoreに登録する</button>
-  <div class="warn">※「防災拠点候補」は公共施設を機械的に取得したものです。実際の指定避難所かどうかは自治体の公式情報をご確認ください。</div>
+  <h1 style="font-size:1.1rem;">このツールは廃止されました</h1>
+  <p>拠点データはGitHub Actionsにより自動生成される静的データ（data/spots/）に移行したため、Firestoreへの一括登録は不要になりました。データは毎週自動更新されます。</p>
+  <p><a href="./">→ 生活情報マップへ戻る</a></p>
 </div>
-<div id="log">待機中…</div>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, writeBatch, doc, serverTimestamp }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCfcSnE9-MwiGfLijIevVUqbfxGcfFcHdo",
-  authDomain: "r8-kumamoto-map.firebaseapp.com",
-  projectId: "r8-kumamoto-map",
-  storageBucket: "r8-kumamoto-map.firebasestorage.app",
-  messagingSenderId: "372510038111",
-  appId: "1:372510038111:web:66dbce59527f052c8be3ea"
-};
-const app = initializeApp(FIREBASE_CONFIG);
-const db = getFirestore(app);
-
-// 対象市町村（熊本県内。阿蘇市・阿蘇郡・玉名郡・山鹿市を除外）
-const MUNIS = [
-  "熊本市","荒尾市","玉名市","菊池市","合志市","大津町","菊陽町",
-  "宇土市","宇城市","美里町","嘉島町","益城町","御船町","甲佐町","山都町",
-  "八代市","氷川町","芦北町","津奈木町","水俣市",
-  "上天草市","天草市","苓北町",
-  "人吉市","錦町","あさぎり町","多良木町","湯前町","水上村","相良村","五木村","山江村","球磨村"
-];
-const GROUPS = {
-  bousai: `nwr["amenity"~"^(townhall|community_centre)$"](area.munis);nwr["leisure"="sports_centre"](area.munis);`,
-  medical:`nwr["amenity"~"^(hospital|clinic)$"](area.munis);`,
-  gas:    `nwr["amenity"="fuel"](area.munis);`,
-  super:  `nwr["shop"~"^(supermarket|convenience|chemist)$"](area.munis);`
-};
-function genreFromTags(t){
-  if(t.amenity==="townhall" || t.amenity==="community_centre" || t.leisure==="sports_centre") return "bousai";
-  if(t.amenity==="hospital" || t.amenity==="clinic") return "medical";
-  if(t.amenity==="fuel") return "gas";
-  if(t.shop==="supermarket" || t.shop==="convenience" || t.shop==="chemist") return "super";
-  return "other";
-}
-const sleep = ms => new Promise(r=>setTimeout(r, ms));
-
-const logEl = document.getElementById("log");
-function log(msg){ logEl.textContent += "\n" + msg; }
-function selectedKeys(){ return Object.keys(GROUPS).filter(k=>document.getElementById("g_"+k).checked); }
-
-let candidates = [];
-
-const ENDPOINTS = [
-  "https://overpass-api.de/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter"
-];
-
-// 選択ジャンルを1回のリクエストにまとめ、429時は待機・別サーバーで再試行
-async function fetchAll(keys){
-  const q = `[out:json][timeout:180];
-area["name"="熊本県"]["admin_level"="4"]->.pref;
-rel["boundary"="administrative"]["admin_level"="7"]["name"~"^(${MUNIS.join("|")})$"](area.pref);
-map_to_area ->.munis;
-(${keys.map(k=>GROUPS[k]).join("")});
-out center 6000;`;
-  let lastErr = null;
-  for(let attempt = 0; attempt < 4; attempt++){
-    const url = ENDPOINTS[attempt % ENDPOINTS.length];
-    try{
-      if(attempt > 0){ log(`再試行 ${attempt}/3（30秒待機中…）`); await sleep(30000); }
-      const res = await fetch(url, {
-        method:"POST",
-        headers:{"Content-Type":"application/x-www-form-urlencoded"},
-        body:"data=" + encodeURIComponent(q)
-      });
-      if(!res.ok) throw new Error("Overpass HTTP " + res.status);
-      const json = await res.json();
-      return (json.elements || []).map(el=>{
-        const lat = el.lat !== undefined ? el.lat : (el.center && el.center.lat);
-        const lng = el.lon !== undefined ? el.lon : (el.center && el.center.lon);
-        const t = el.tags || {};
-        let name = t.name || t.brand || null;
-        if(name && t.branch && !name.includes(t.branch)) name += " " + t.branch;  // 〇〇店まで含める
-        return {osmId:"osm-"+el.type+"-"+el.id, name, genre:genreFromTags(t), lat, lng};
-      }).filter(s=>s.name && s.genre!=="other" && typeof s.lat==="number" && typeof s.lng==="number");
-    }catch(e){ lastErr = e; }
-  }
-  throw lastErr;
-}
-
-document.getElementById("preview").onclick = async ()=>{
-  logEl.textContent = "取得中…（数十秒かかることがあります）";
-  candidates = [];
-  try{
-    candidates = await fetchAll(selectedKeys());
-    const counts = {};
-    candidates.forEach(c=>counts[c.genre] = (counts[c.genre]||0)+1);
-    Object.entries(counts).forEach(([g,n])=>log(`${g}: ${n}件`));
-    // 既存拠点のosmIdを取得して重複除外
-    const snap = await getDocs(collection(db, "spots"));
-    const existing = new Set(snap.docs.map(d=>d.data().osmId).filter(Boolean));
-    const before = candidates.length;
-    candidates = candidates.filter(c=>!existing.has(c.osmId));
-    log(`合計 ${before}件 → 登録済み除外後 ${candidates.length}件`);
-    log("内容が良ければ「2. Firestoreに登録する」を押してください。");
-    document.getElementById("register").disabled = candidates.length === 0;
-  }catch(e){ log("エラー: " + e.message); }
-};
-
-document.getElementById("register").onclick = async ()=>{
-  if(!candidates.length) return;
-  if(!confirm(candidates.length + "件を登録します。よろしいですか？")) return;
-  document.getElementById("register").disabled = true;
-  try{
-    let done = 0;
-    for(let i=0; i<candidates.length; i+=400){
-      const batch = writeBatch(db);
-      candidates.slice(i, i+400).forEach(c=>{
-        batch.set(doc(collection(db,"spots")),
-          {name:c.name.slice(0,50), genre:c.genre, lat:c.lat, lng:c.lng, osmId:c.osmId, createdAt:serverTimestamp()});
-      });
-      await batch.commit();
-      done += Math.min(400, candidates.length - i);
-      log(`${done}/${candidates.length} 件登録済み…`);
-    }
-    log("✅ 完了しました。マップを開いて確認してください。");
-  }catch(e){ log("エラー: " + e.message); }
-};
-</script>
 </body>
 </html>

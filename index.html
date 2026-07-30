@@ -78,7 +78,7 @@
       <input id="searchBox" type="search" placeholder="フリーワード検索（例：おにぎり おむつ ミルク）">
       <div id="genreChips"></div>
       <button id="addSpotBtn">＋ 新しい拠点を地図に追加</button>
-      <div style="font-size:.7rem; color:var(--c-sub); margin-top:6px;">薄い印は地図データ（OpenStreetMap）由来の施設です。タップして投稿すると共有拠点になります。通行止めを見つけたら「＋新しい拠点」→🚧道路規制で共有してください。</div>
+      <div style="font-size:.7rem; color:var(--c-sub); margin-top:6px;">薄い印はまだ投稿のない施設です（施設データ: OpenStreetMap）。タップすると最新状況の閲覧・投稿ができます。通行止めを見つけたら「＋新しい拠点」→🚧道路規制で共有してください。</div>
       <div style="font-size:.72rem; margin-top:6px;">公式の道路情報：
         <a href="https://www.jartic.or.jp/" target="_blank" rel="noopener">JARTIC</a>（開いたら「九州・沖縄」→「熊本」を選択）／
         <a href="https://www.qsr.mlit.go.jp/bousai_joho/tecforce/access.html" target="_blank" rel="noopener">九州通れるマップ</a> ／
@@ -238,7 +238,7 @@ function renderMarkers(){
   const bounds = map.getBounds().pad(0.3);
   visibleSpots().filter(s=>bounds.contains([s.lat, s.lng])).slice(0, 800).forEach(s=>{
     const m = L.marker([s.lat, s.lng],
-      {icon:makeIcon(s.genre, s.id===selectedId), opacity: s.osm ? 0.55 : 1});
+      {icon:makeIcon(s.genre, s.id===selectedId), opacity: (s.osm && !spotPosts(s.id).length) ? 0.55 : 1});
     m.on("click", ()=>openSpot(s.id));
     m.bindTooltip(esc(s.name), {direction:"top", offset:[0,-16]});
     m.addTo(markerLayer);
@@ -284,7 +284,7 @@ function renderDetail(){
   card.style.display = "block";
   document.getElementById("detailTitle").textContent = g.emoji + " " + s.name;
   document.getElementById("detailGenre").textContent =
-    g.label + (s.osm ? "（地図データ由来。最初の投稿で共有拠点になります）" : "");
+    g.label + (s.osm ? "（地図データ由来）" : "");
   const list = document.getElementById("detailPosts");
   const posts = [...spotPosts(s.id)].sort((a,b)=>b.time-a.time);
   if(!posts.length){ list.innerHTML = '<div class="empty">まだ投稿がありません。最初の情報を投稿してください。</div>'; }
@@ -343,13 +343,8 @@ document.getElementById("postSubmit").onclick = async (e)=>{
   if(!spot || !text) return;
   btn.disabled = true;
   try{
-    if(spot.osm){
-      // OSM由来の施設への最初の投稿 → 共有拠点として登録
-      const newId = await addSpot(spot.name, spot.genre, spot.lat, spot.lng, text, spot.id);
-      selectedId = newId;
-    }else{
-      await addPost(spot.id, text, document.getElementById("postName").value.trim());
-    }
+    // 静的スポット・手動拠点とも、投稿はspotIdに直接ぶら下げる
+    await addPost(spot.id, text, document.getElementById("postName").value.trim());
     document.getElementById("postText").value = "";
   }catch(err){ alert("投稿に失敗しました: " + err.message); }
   btn.disabled = false;
@@ -403,60 +398,47 @@ document.getElementById("searchBox").addEventListener("input", e=>{
   searchText = e.target.value; refresh();
 });
 
-/* ================= OSM施設の自動取得（Overpass API） ================= */
-const OVERPASS = "https://overpass-api.de/api/interpreter";
-let osmTimer = null;
+/* ================= 静的スポットデータの読み込み =================
+   拠点データはGitHub Actionsが生成する data/spots/*.json から取得。
+   core.json（宇城市・八代市・氷川町）は初期表示で必ず読み込み、
+   他地域は地図の表示範囲に入った時のみ読み込む（転送量・遅延の削減）。 */
+let spotIndex = [];
+const loadedFiles = {};
 
-function setOsmStatus(msg){
-  const el = document.getElementById("osmStatus");
-  el.textContent = msg;
-  el.style.display = msg ? "block" : "none";
-}
-function genreFromTags(t){
-  if(t.amenity === "fuel") return "gas";
-  if(t.shop === "supermarket" || t.shop === "convenience" || t.shop === "chemist") return "super";
-  if(t.amenity === "hospital" || t.amenity === "clinic" || t.amenity === "pharmacy" || t.amenity === "doctors") return "medical";
-  if(t.amenity === "drinking_water") return "water";
-  return "other";
-}
-async function fetchOsmSpots(){
-  if(map.getZoom() < 12){ setOsmStatus("拡大すると周辺の施設が表示されます"); return; }
-  const b = map.getBounds();
-  const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].map(x=>x.toFixed(4)).join(",");
-  const q = `[out:json][timeout:25];(
-    nwr["amenity"~"^(fuel|hospital|clinic|pharmacy)$"](${bbox});
-    nwr["shop"~"^(supermarket|convenience|chemist)$"](${bbox});
-  );out center 300;`;
+async function loadSpotFile(file){
+  if(loadedFiles[file]) return;
+  loadedFiles[file] = true;
   try{
-    setOsmStatus("周辺の施設を読み込み中…");
-    const res = await fetch(OVERPASS, {
-      method:"POST",
-      headers:{"Content-Type":"application/x-www-form-urlencoded"},
-      body:"data=" + encodeURIComponent(q)
-    });
-    if(!res.ok) throw new Error(res.status);
-    const json = await res.json();
-    osmSpots = (json.elements || []).map(el=>{
-      const lat = el.lat !== undefined ? el.lat : (el.center && el.center.lat);
-      const lng = el.lon !== undefined ? el.lon : (el.center && el.center.lon);
-      const t = el.tags || {};
-      const genre = genreFromTags(t);
-      let name = t.name || t.brand || (GENRES[genre].label + "（名称不明）");
-      if(t.branch && !name.includes(t.branch)) name += " " + t.branch;  // 〇〇店まで表示
-      return {id:"osm-" + el.type + "-" + el.id, name, genre, lat, lng, osm:true};
-    }).filter(s=>typeof s.lat === "number" && typeof s.lng === "number");
-    setOsmStatus("");
+    const res = await fetch("data/spots/" + file);
+    if(!res.ok) return;
+    const j = await res.json();
+    const ids = new Set(osmSpots.map(s=>s.id));
+    (j.spots || []).forEach(s=>{ if(!ids.has(s.id)) osmSpots.push({...s, osm:true}); });
     refresh();
-  }catch(e){
-    console.error("Overpass取得エラー", e);
-    setOsmStatus("施設情報の取得に失敗しました（時間をおいて地図を動かすと再取得します）");
-  }
+  }catch(e){ console.error("スポット読み込みエラー", file, e); }
+}
+function bboxIntersects(bounds, bb){
+  return bounds.getSouth() < bb[2] && bounds.getNorth() > bb[0]
+      && bounds.getWest() < bb[3] && bounds.getEast() > bb[1];
+}
+function loadVisibleRegions(){
+  if(!spotIndex.length) return;
+  const b = map.getBounds().pad(0.2);
+  spotIndex.forEach(e=>{ if(bboxIntersects(b, e.bbox)) loadSpotFile(e.file); });
+}
+async function initStaticSpots(){
+  loadSpotFile("core.json");  // 宇城市・八代市・氷川町は常に初期ロード
+  try{
+    const res = await fetch("data/spots/index.json");
+    if(res.ok) spotIndex = (await res.json()).files || [];
+  }catch(e){ console.error("index.json読み込みエラー", e); }
+  loadVisibleRegions();
 }
 map.on("moveend", ()=>{
-  renderMarkers();  // 表示範囲が変わったら描画対象を更新
-  clearTimeout(osmTimer); osmTimer = setTimeout(fetchOsmSpots, 800);
+  renderMarkers();       // 表示範囲が変わったら描画対象を更新
+  loadVisibleRegions();  // 新たに範囲に入った地域データを読み込み
 });
-fetchOsmSpots();
+initStaticSpots();
 
 // スマホ対策：レイアウト確定後にサイズ再計算（初期化時に高さ0だと地図が表示されないため）
 setTimeout(()=>map.invalidateSize(), 400);

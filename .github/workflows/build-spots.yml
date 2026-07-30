@@ -1,0 +1,30 @@
+name: build-spots
+
+on:
+  workflow_dispatch:        # 手動実行
+  schedule:
+    - cron: "0 18 * * 0"    # 毎週月曜 3:00 JST に自動更新
+  push:
+    paths:
+      - "scripts/build-spots.mjs"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: OSMから拠点データを生成
+        run: node scripts/build-spots.mjs
+      - name: 変更があればコミット
+        run: |
+          git config user.name "spots-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/spots
+          git diff --cached --quiet || git commit -m "拠点データ自動更新"
+          git push
