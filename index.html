@@ -198,6 +198,10 @@
       <button class="btn" id="fbSubmit">送信</button>
     </div>
   </div>
+  <div class="card" style="margin-bottom:12px;">
+    <h2 style="font-size:.95rem; margin-bottom:6px;">📊 サイトの利用状況</h2>
+    <div id="siteStats" style="font-size:.85rem; color:var(--c-sub);">読み込み中…</div>
+  </div>
   <h2 style="font-size:.95rem; color:var(--c-main); margin-bottom:8px;">💬 みなさんからの声</h2>
   <div id="fbList"><div class="empty">読み込み中…</div></div>
 </div>
@@ -475,6 +479,28 @@ function renderDetail(){
 
 function refresh(){ renderChips(); renderMarkers(); renderFeed(); renderDetail(); }
 
+// サイト全体の閲覧数（1セッション1回だけカウント）
+async function countSiteView(){
+  if(!db) return;
+  try{
+    if(sessionStorage.getItem("siteCounted")) return;
+    sessionStorage.setItem("siteCounted", "1");
+  }catch(e){}
+  try{
+    await fs.setDoc(fs.doc(db, "views", "_site"), {count: fs.increment(1)}, {merge:true});
+  }catch(e){ console.error("サイト閲覧数カウントエラー", e); }
+}
+function renderSiteStats(){
+  const el = document.getElementById("siteStats");
+  if(!el) return;
+  const site = viewCounts["_site"] || 0;
+  const posts = Object.values(postsMap).reduce((n, a)=>n + a.length, 0);
+  const spotN = allSpots().length;
+  el.innerHTML = `👁 サイト閲覧数: <b>${site.toLocaleString()}</b> 回<br>` +
+    `💬 マップへの投稿: <b>${posts.toLocaleString()}</b> 件　📣 フリー投稿: <b>${wallPosts.length}</b> 件　🆘 ヘルプ: <b>${helpThreads.length}</b> 件<br>` +
+    `<span style="font-size:.75rem;">※閲覧数は同じ端末の同じ訪問では1回として数えます（読み込み済みの拠点 ${spotN.toLocaleString()} 件）</span>`;
+}
+
 // 閲覧数カウント（同じ端末・同じセッションでは1施設1回まで）
 const viewedThisSession = new Set();
 async function countView(id){
@@ -713,6 +739,7 @@ document.getElementById("shareNative").onclick = async ()=>{
 let feedbacks = [];
 let fbSubscribed = false;
 function initFeedback(){
+  renderSiteStats();
   if(fbSubscribed){ renderFeedback(); return; }
   fbSubscribed = true;
   if(!db){ renderFeedback(); return; }
@@ -1056,8 +1083,10 @@ async function boot(){
   fsMod.onSnapshot(fsMod.query(fsMod.collection(db,"views"), fsMod.limit(3000)), snap=>{
     viewCounts = {};
     snap.docs.forEach(d=>{ viewCounts[d.id] = (d.data().count) || 0; });
-    renderDetail(); renderFeed();
+    renderDetail(); renderFeed(); renderSiteStats();
   }, err=>console.error("views購読エラー", err));
+
+  countSiteView();  // サイト全体の閲覧数を1セッション1回カウント
 }
 boot();
 </script>
