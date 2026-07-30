@@ -72,7 +72,8 @@
     footer{font-size:.62rem; padding:4px 10px;}
     #layout{flex-direction:column;}
     #mapWrap{flex:none !important; height:48vh; height:48dvh; width:100%;}
-    #sidebar{width:100%; max-width:100%; flex:1; border-left:none; border-top:1px solid var(--c-border);}
+    #sidebar{width:100%; max-width:100%; flex:1; border-left:none; border-top:1px solid var(--c-border); display:block; overflow-y:auto;}
+    #panels{overflow:visible;}
     header h1{font-size:.95rem;}
   }
 </style>
@@ -340,9 +341,25 @@ function refresh(){ renderChips(); renderMarkers(); renderFeed(); renderDetail()
 function openSpot(id){
   selectedId = id;
   const s = allSpots().find(x=>x.id===id);
-  if(s) map.panTo([s.lat, s.lng]);
   refresh();
-  document.getElementById("panels").scrollTop = 0;
+  if(s){
+    map.panTo([s.lat, s.lng]);
+    // 地図上に施設名ポップアップ（スマホでも名前がすぐ分かるように）
+    const g = GENRES[s.genre] || GENRES.other;
+    const posts = [...spotPosts(id)].sort((a,b)=>b.time-a.time);
+    const latest = posts.length
+      ? esc(posts[0].text.slice(0,60)) + (posts[0].text.length>60?"…":"") + `<span style="color:#777;">（${rel(posts[0].time)}）</span>`
+      : '<span style="color:#777;">まだ投稿がありません</span>';
+    L.popup({offset:[0,-14]})
+      .setLatLng([s.lat, s.lng])
+      .setContent(`<b>${esc(g.emoji + " " + s.name)}</b><br>${latest}<br><span style="color:var(--c-main); font-size:.8em;">↓ 下の詳細欄で閲覧・投稿できます</span>`)
+      .openOn(map);
+  }
+  // 詳細カードが見える位置まで自動スクロール
+  setTimeout(()=>{
+    const card = document.getElementById("detailCard");
+    if(card && card.style.display !== "none") card.scrollIntoView({behavior:"smooth", block:"start"});
+  }, 200);
 }
 
 /* ================= データ書き込み（Firestore or デモ） ================= */
@@ -389,7 +406,7 @@ document.getElementById("postSubmit").onclick = async (e)=>{
   }catch(err){ alert("投稿に失敗しました: " + err.message); }
   btn.disabled = false;
 };
-document.getElementById("detailClose").onclick = ()=>{ selectedId=null; refresh(); };
+document.getElementById("detailClose").onclick = ()=>{ selectedId=null; map.closePopup(); refresh(); };
 
 const addBtn = document.getElementById("addSpotBtn");
 const hint = document.getElementById("hint");
