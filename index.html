@@ -970,8 +970,10 @@ function goToCurrentLocation(zoom, autoMode){
   if(!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition(pos=>{
     const lat = pos.coords.latitude, lng = pos.coords.longitude;
-    // 自動移動は熊本県周辺にいる場合のみ（県外からの閲覧時はデフォルト表示を維持）
-    if(autoMode && !(lat > 32.0 && lat < 33.3 && lng > 129.8 && lng < 131.3)) return;
+    // 自動移動は被災エリア（宇土〜八代・氷川周辺）にいる場合のみ。
+    // 離れた場所から見ているときは、デフォルト表示（八代市鏡町 鏡交差点付近）を維持する。
+    const inAffectedArea = lat > 32.40 && lat < 32.78 && lng > 130.45 && lng < 130.98;
+    if(autoMode && !inAffectedArea) return;
     if(geoMarker) geoMarker.remove();
     geoMarker = L.circleMarker([lat, lng],
       {radius:8, color:"#fff", weight:2, fillColor:"#1a73e8", fillOpacity:1}).addTo(map)
