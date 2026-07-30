@@ -216,8 +216,8 @@ function loadDemoData(){
 }
 
 /* ================= 地図 ================= */
-// デフォルト表示：熊本県宇城市役所を中心に、半径約10kmが見えるズーム
-const map = L.map("map").setView([32.6474, 130.6842], 12);
+// デフォルト表示：八代市鏡町（鏡交差点付近）を中心に、宇城市〜八代市が収まるズーム
+const map = L.map("map").setView([32.5980, 130.6660], 11);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   maxZoom:19
