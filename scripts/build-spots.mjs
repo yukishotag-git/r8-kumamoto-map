@@ -33,19 +33,44 @@ area["name"="熊本県"]["admin_level"="4"]->.pref;
 rel["boundary"="administrative"]["admin_level"="7"]["name"~"^(${munis.join("|")})$"](area.pref);
 map_to_area ->.m;
 (
-nwr["amenity"~"^(fuel|hospital|clinic|townhall|community_centre)$"](area.m);
-nwr["shop"~"^(supermarket|convenience|chemist)$"](area.m);
-nwr["leisure"="sports_centre"](area.m);
+nwr["amenity"~"^(fuel|charging_station|hospital|clinic|doctors|pharmacy|townhall|community_centre|marketplace|public_bath|drinking_water|water_point)$"](area.m);
+nwr["shop"~"^(supermarket|convenience|chemist|grocery|greengrocer|butcher|bakery|department_store|general|variety_store|discount|wholesale|farm|seafood|hardware|doityourself|kiosk)$"](area.m);
+nwr["leisure"~"^(sports_centre|sports_hall)$"](area.m);
+nwr["shop"="mall"](area.m);
+nwr["tourism"="information"]["information"="office"](area.m);
 );
-out center 8000;`;
+out center 20000;`;
 }
 
+const SUPER_SHOPS = ["supermarket","convenience","chemist","grocery","greengrocer","butcher","bakery",
+  "department_store","general","variety_store","discount","wholesale","farm","seafood","kiosk","mall",
+  "hardware","doityourself"];
+
 function genreFromTags(t){
-  if(t.amenity === "townhall" || t.amenity === "community_centre" || t.leisure === "sports_centre") return "bousai";
-  if(t.amenity === "hospital" || t.amenity === "clinic") return "medical";
-  if(t.amenity === "fuel") return "gas";
-  if(t.shop === "supermarket" || t.shop === "convenience" || t.shop === "chemist") return "super";
+  if(t.amenity === "fuel" || t.amenity === "charging_station") return "gas";
+  if(t.amenity === "drinking_water" || t.amenity === "water_point") return "water";
+  if(t.amenity === "public_bath") return "bath";
+  if(["hospital","clinic","doctors","pharmacy"].includes(t.amenity)) return "medical";
+  if(t.amenity === "townhall" || t.amenity === "community_centre"
+     || t.leisure === "sports_centre" || t.leisure === "sports_hall"
+     || (t.tourism === "information" && t.information === "office")) return "bousai";
+  if(SUPER_SHOPS.includes(t.shop) || t.amenity === "marketplace") return "super";
   return "other";
+}
+
+// 名称が無い施設向けの表示名（災害時は位置情報が重要なので捨てずに残す）
+function fallbackName(t, genre){
+  if(t.operator) return t.operator;
+  const label = {
+    gas:"ガソリンスタンド", super:"店舗", medical:"医療機関",
+    bousai:"公共施設", water:"給水設備", bath:"入浴施設"
+  }[genre] || "施設";
+  const sub = {
+    convenience:"コンビニ", supermarket:"スーパー", chemist:"ドラッグストア",
+    bakery:"パン屋", greengrocer:"青果店", butcher:"精肉店", seafood:"鮮魚店",
+    hardware:"金物店", doityourself:"ホームセンター", kiosk:"売店"
+  }[t.shop];
+  return (sub || label) + "（名称未登録）";
 }
 
 async function fetchGroup(munis){
@@ -66,12 +91,14 @@ async function fetchGroup(munis){
         const lat = el.lat !== undefined ? el.lat : el.center && el.center.lat;
         const lng = el.lon !== undefined ? el.lon : el.center && el.center.lon;
         const t = el.tags || {};
+        const genre = genreFromTags(t);
         let name = t.name || t.brand || null;
         if(name && t.branch && !name.includes(t.branch)) name += " " + t.branch;
+        if(!name) name = fallbackName(t, genre);   // 無名でも位置情報として残す
         // 住所タグから地区名を控えておく（同名店舗の店名導出用）
         const loc = t["addr:quarter"] || t["addr:neighbourhood"] || t["addr:suburb"] || null;
-        return {id: "osm-" + el.type + "-" + el.id, name, genre: genreFromTags(t), lat, lng, loc};
-      }).filter(s => s.name && s.genre !== "other" && typeof s.lat === "number" && typeof s.lng === "number");
+        return {id: "osm-" + el.type + "-" + el.id, name, genre, lat, lng, loc};
+      }).filter(s => s.genre !== "other" && typeof s.lat === "number" && typeof s.lng === "number");
     }catch(e){ lastErr = e; console.error(`attempt ${attempt}: ${e.message}`); }
   }
   throw lastErr;
@@ -104,7 +131,8 @@ for(const [file, munis] of Object.entries(GROUPS)){
 const all = Object.values(groupSpots).flat();
 const counts = {};
 all.forEach(s => counts[s.name] = (counts[s.name] || 0) + 1);
-const targets = all.filter(s => counts[s.name] > 1);
+// 名称未登録のものは店名導出の対象外（無駄なジオコーディングを避ける）
+const targets = all.filter(s => counts[s.name] > 1 && !s.name.includes("名称未登録"));
 console.log(`同名重複 ${targets.length} 件の店名を導出...`);
 let nomiUsed = 0;
 for(const s of targets){
