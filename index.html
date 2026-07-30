@@ -120,8 +120,18 @@
   .tile-dark{filter:invert(100%) hue-rotate(180deg) brightness(.92) contrast(1.1);}
   .leaflet-control-scale-line{font-size:.7rem;}
   .mapLegend{background:rgba(255,255,255,.93); border:1px solid var(--c-border); border-radius:8px;
-             padding:5px 8px; font-size:.7rem; line-height:1.7; box-shadow:0 1px 4px rgba(0,0,0,.2);
-             margin-left:44px !important;}
+             padding:5px 8px; font-size:.7rem; line-height:1.7; box-shadow:0 1px 4px rgba(0,0,0,.2);}
+  /* 位置指定用の十字マーク＆確定バー */
+  #crosshair{display:none; position:absolute; inset:0; z-index:900; pointer-events:none;}
+  #crosshair .chV{position:absolute; left:50%; top:50%; width:2px; height:46px; margin:-23px 0 0 -1px; background:rgba(217,79,48,.9);}
+  #crosshair .chH{position:absolute; left:50%; top:50%; width:46px; height:2px; margin:-1px 0 0 -23px; background:rgba(217,79,48,.9);}
+  #crosshair .chDot{position:absolute; left:50%; top:50%; width:14px; height:14px; margin:-7px 0 0 -7px;
+                    border:2px solid #fff; border-radius:50%; background:rgba(217,79,48,.9); box-shadow:0 0 0 1px rgba(0,0,0,.3);}
+  #pickBar{display:none; position:absolute; left:8px; right:8px; bottom:8px; z-index:1100;
+           background:rgba(255,255,255,.97); border:1px solid var(--c-border); border-radius:10px;
+           padding:8px 10px; box-shadow:0 2px 10px rgba(0,0,0,.28);
+           align-items:center; gap:8px; flex-wrap:wrap;}
+  #pickInfo{flex:1; min-width:150px; font-size:.78rem; color:var(--c-text);}
   .lgItem{display:inline-flex; align-items:center; margin-right:9px; white-space:nowrap;}
   .lgItem i{display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:3px;
             border:1.5px solid #fff; box-shadow:0 0 0 1px rgba(0,0,0,.25);}
@@ -182,6 +192,12 @@
     <div id="map"></div>
     <div id="hint">地図上の追加したい場所をタップしてください（もう一度ボタンを押すと解除）</div>
     <div id="osmStatus"></div>
+    <div id="crosshair"><div class="chV"></div><div class="chH"></div><div class="chDot"></div></div>
+    <div id="pickBar">
+      <span id="pickInfo">地図を動かして中心を合わせる／地図をタップしても指定できます</span>
+      <button class="btn" id="pickOk">この場所にする</button>
+      <button class="btn gray" id="pickCancel">やめる</button>
+    </div>
   </div>
   <div id="sidebar">
     <div id="controls">
@@ -194,7 +210,7 @@
       <div id="genreChips"></div>
       <button id="addSpotBtn">＋ 新しい拠点を地図に追加</button>
       <div style="font-size:.7rem; color:var(--c-sub); margin-top:6px;">
-        ピンの色は<b>最新投稿の内容</b>で変わります（緑=利用できそう／黄=要確認／赤=困難）。小さい緑は投稿がまだない施設です。
+        ピンの色は<b>最新投稿の内容</b>で変わります（緑=平常・利用可／黄=支援情報あり／赤=危険・利用不可）。小さい緑は投稿がまだない施設です。
         施設データはOpenStreetMap。公式情報は右上の「☰」メニューから。
       </div>
     </div>
@@ -371,7 +387,7 @@ const GENRES = {
 };
 /* ピンの色：最新投稿の内容で判定した状況を表す
    赤=利用できない/困難、黄=注意・要確認、緑=利用できそう、淡緑(小)=投稿なし、黄(角丸)=ヘルプ */
-const STATUS_COLORS = {bad:"#d62828", warn:"#f4b400", good:"#2e9e4f", none:"#8bbf9a", help:"#f1c40f"};
+const STATUS_COLORS = {bad:"#d62828", warn:"#f4b400", good:"#2e9e4f", none:"#4c9a68", help:"#f4b400"};
 const MIN = 60*1000, HOUR = 60*MIN;
 
 /* ================= 状態（表示用データはここに集約） ================= */
@@ -443,16 +459,16 @@ L.control.layers({
 // 縮尺表示（メートル法）
 L.control.scale({position:"bottomleft", imperial:false, maxWidth:160}).addTo(map);
 
-// 凡例（地図上に常時表示）
-const legendCtl = L.control({position:"topleft"});
+// 凡例（地図の下部に常時表示）
+const legendCtl = L.control({position:"bottomleft"});
 legendCtl.onAdd = ()=>{
   const d = L.DomUtil.create("div", "mapLegend");
   const item = (color, label, extra="") =>
     `<span class="lgItem"><i style="background:${color};${extra}"></i>${label}</span>`;
   d.innerHTML =
-    item(STATUS_COLORS.good, "利用できそう") +
-    item(STATUS_COLORS.warn, "要確認・注意") +
-    item(STATUS_COLORS.bad, "困難・利用不可") +
+    item(STATUS_COLORS.good, "平常・利用可") +
+    item(STATUS_COLORS.warn, "支援情報あり") +
+    item(STATUS_COLORS.bad, "危険・利用不可") +
     item(STATUS_COLORS.none, "投稿なし", "width:9px;height:9px;") +
     item(STATUS_COLORS.help, "🆘ヘルプ", "border-radius:3px;");
   L.DomEvent.disableClickPropagation(d);
@@ -463,22 +479,21 @@ const markerLayer = L.layerGroup().addTo(map);
 
 /* 最新投稿の内容から状況を判定して色を決める
    赤=利用できない/困難、黄=注意・要確認、緑=利用できそう、灰緑(小)=投稿なし */
-const NG =["閉店","閉まって","休業","休み","停電","断水","売り切れ","品切れ","在庫なし","在庫切れ","完売",
-  "満車","満員","満床","受入不可","受け入れ不可","通行止","全面通行止","使えない","入れない","入荷なし",
-  "終了","中止","被害","倒壊","危険","無い","なくなり","ありません","不可"];
-const CAUTION = ["行列","混雑","待ち","待機","残りわずか","少ない","制限","個数制限","一人","1人","一部",
-  "予約","要確認","未定","短縮","減少","混んで","並んで","時間帯","片側","規制","注意","のみ"];
-const OK = ["営業","開いて","開店","入荷","在庫あり","通常","再開","給水中","空いて","補充","販売中",
-  "利用できます","使えます","あります","実施中","炊き出し","再開しました"];
+// 赤：危険・利用できない情報（通行止め・停電・断水・閉鎖など）
+const DANGER = ["通行止","全面通行止","片側","封鎖","停電","断水","漏水","ガス漏れ","火災","倒壊","崩落","土砂",
+  "陥没","亀裂","浸水","危険","立入禁止","立ち入り禁止","閉鎖","閉店","休業","休み","閉まって","使えない",
+  "利用できません","入れない","中止","売り切れ","品切れ","在庫なし","完売","満車","満員","満床","受入不可","不可"];
+// 緑：平常・利用できる情報
+const OK = ["営業","開いて","開店","通常","再開","平常","利用できます","使えます","復旧","通行できます",
+  "空いて","問題なし","異常なし"];
 
 function statusOf(spotId){
   const posts = spotPosts(spotId);
-  if(!posts.length) return "none";
+  if(!posts.length) return "none";                   // 投稿なし → 緑（小）
   const latest = [...posts].sort((a,b)=>b.time - a.time)[0].text || "";
-  if(NG.some(w=>latest.includes(w))) return "bad";
-  if(CAUTION.some(w=>latest.includes(w))) return "warn";
-  if(OK.some(w=>latest.includes(w))) return "good";
-  return "warn";   // 判断できない場合は「要確認」扱い
+  if(DANGER.some(w=>latest.includes(w))) return "bad";   // 赤：危険情報
+  if(OK.some(w=>latest.includes(w))) return "good";      // 緑：利用できる
+  return "warn";                                         // 黄：支援情報あり
 }
 
 function makeIcon(genre, selected, status){
@@ -791,28 +806,81 @@ addBtn.onclick = ()=>{
   if(addMode){
     addBtn.classList.add("arming");
     addBtn.textContent = "拠点追加をやめる";
-    hint.style.display = "block";
-  }else exitAddMode();
+    startPick("spot");
+  }else{
+    endPick();
+    exitAddMode();
+  }
 };
+/* ================= 位置指定（十字マークで確認して確定） ================= */
+let pickMode = null;          // "spot" | "help" | null
+let pickMarker = null;        // 指定中の場所を示すピン
+const crosshair = document.getElementById("crosshair");
+const pickBar = document.getElementById("pickBar");
+const pickInfo = document.getElementById("pickInfo");
+
+function pickedLatLng(){
+  return pickMarker ? pickMarker.getLatLng() : map.getCenter();
+}
+function updatePickInfo(){
+  const p = pickedLatLng();
+  pickInfo.textContent = (pickMarker ? "指定した場所" : "地図の中心") +
+    `：${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}（地図を動かす／タップして調整できます）`;
+}
+function startPick(mode){
+  pickMode = mode;
+  showTab("map");
+  crosshair.style.display = "block";
+  pickBar.style.display = "flex";
+  hint.style.display = "none";
+  if(pickMarker){ pickMarker.remove(); pickMarker = null; }
+  setTimeout(()=>{ map.invalidateSize(); updatePickInfo(); }, 150);
+}
+function endPick(){
+  pickMode = null;
+  crosshair.style.display = "none";
+  pickBar.style.display = "none";
+  if(pickMarker){ pickMarker.remove(); pickMarker = null; }
+}
+map.on("move", ()=>{ if(pickMode && !pickMarker) updatePickInfo(); });
+
 map.on("click", e=>{
-  // ヘルプの位置指定モード
-  if(helpPickMode){
-    helpLoc = {lat:e.latlng.lat, lng:e.latlng.lng};
-    helpPickMode = false;
-    hint.style.display = "none";
-    hint.textContent = "地図上の追加したい場所をタップしてください（もう一度ボタンを押すと解除）";
-    updateHelpLocText();
-    showTab("help");
+  if(pickMode){
+    // タップした場所にドラッグ可能なピンを置く（微調整できる）
+    if(pickMarker) pickMarker.remove();
+    pickMarker = L.marker(e.latlng, {draggable:true, zIndexOffset:1000}).addTo(map);
+    pickMarker.on("drag", updatePickInfo);
+    updatePickInfo();
     return;
   }
-  if(!addMode) return;
-  pendingLatLng = e.latlng;
-  const sel = document.getElementById("newSpotGenre");
-  sel.innerHTML = Object.entries(GENRES).map(([k,g])=>`<option value="${k}">${g.emoji} ${g.label}</option>`).join("");
-  document.getElementById("newSpotName").value = "";
-  document.getElementById("newSpotPost").value = "";
-  document.getElementById("modalBg").style.display = "flex";
 });
+
+document.getElementById("pickCancel").onclick = ()=>{
+  const wasHelp = pickMode === "help";
+  endPick();
+  exitAddMode();
+  if(wasHelp) showTab("help");
+};
+document.getElementById("pickOk").onclick = ()=>{
+  const p = pickedLatLng();
+  if(pickMode === "help"){
+    helpLoc = {lat:p.lat, lng:p.lng};
+    endPick();
+    updateHelpLocText();
+    showTab("help");
+  }else if(pickMode === "spot"){
+    pendingLatLng = p;
+    endPick();
+    exitAddMode();
+    const sel = document.getElementById("newSpotGenre");
+    sel.innerHTML = Object.entries(GENRES)
+      .filter(([k])=>k !== "helpreq")
+      .map(([k,g])=>`<option value="${k}">${g.emoji} ${g.label}</option>`).join("");
+    document.getElementById("newSpotName").value = "";
+    document.getElementById("newSpotPost").value = "";
+    document.getElementById("modalBg").style.display = "flex";
+  }
+};
 document.getElementById("modalCancel").onclick = ()=>{ document.getElementById("modalBg").style.display="none"; };
 document.getElementById("modalOk").onclick = async (e)=>{
   const btn = e.target;
@@ -1120,7 +1188,6 @@ const HELP_STATUS = {
 };
 let helpThreads = [];     // [{id, text, name, category, status, time, upd, lat, lng}]
 let helpLoc = null;       // 投稿しようとしているヘルプの位置
-let helpPickMode = false; // 地図タップで位置を指定するモード
 let helpReplies = {};     // {helpId: [{text, name, time}]}
 let helpSubscribed = false;
 let helpFilterCat = "all";
@@ -1296,12 +1363,7 @@ document.getElementById("helpUseGeo").onclick = ()=>{
     alert("現在地を取得できませんでした。「地図で指定」もお試しください。");
   }, {enableHighAccuracy:true, timeout:8000});
 };
-document.getElementById("helpPickMap").onclick = ()=>{
-  helpPickMode = true;
-  showTab("map");
-  hint.textContent = "🆘 ヘルプの場所を地図でタップしてください";
-  hint.style.display = "block";
-};
+document.getElementById("helpPickMap").onclick = ()=>{ startPick("help"); };
 document.getElementById("helpClearLoc").onclick = ()=>{ helpLoc = null; updateHelpLocText(); };
 document.getElementById("helpCat").innerHTML = HELP_CATS.map(c=>`<option value="${c}">${c}</option>`).join("");
 document.getElementById("helpSearch").addEventListener("input", e=>{ helpSearch = e.target.value; renderHelp(); });
