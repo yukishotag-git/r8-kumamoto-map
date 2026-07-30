@@ -1,0 +1,31 @@
+name: build-manual-spots
+
+on:
+  workflow_dispatch:        # 手動実行
+  push:
+    paths:
+      - "scripts/build-manual.mjs"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: ランドマークをジオコーディング
+        run: node scripts/build-manual.mjs
+      - name: 変更があればコミット
+        run: |
+          git config user.name "spots-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/manual-spots.json
+          if ! git diff --cached --quiet; then
+            git commit -m "ランドマークデータ更新"
+            git pull --rebase origin main
+            git push
+          fi

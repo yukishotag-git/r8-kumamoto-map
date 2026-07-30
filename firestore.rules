@@ -11,7 +11,7 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 50
-        && request.resource.data.genre in ['gas','super','bousai','water','medical','road','other']
+        && request.resource.data.genre in ['gas','super','bousai','water','medical','bath','road','other']
         && request.resource.data.lat is number
         && request.resource.data.lng is number
         && request.resource.data.lat > 24 && request.resource.data.lat < 46
@@ -31,6 +31,16 @@ service cloud.firestore {
         && request.resource.data.nickname is string
         && request.resource.data.nickname.size() <= 20;
       allow update, delete: if false;
+    }
+
+    // 閲覧数：誰でも閲覧可。1ずつの増加のみ許可
+    match /views/{id} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['count'])
+        && request.resource.data.count == 1;
+      allow update: if request.resource.data.keys().hasOnly(['count'])
+        && request.resource.data.count == resource.data.count + 1;
+      allow delete: if false;
     }
 
     // 緊急ヘルプ：誰でも閲覧・投稿可。ステータス変更のみ更新を許可

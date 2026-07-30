@@ -57,6 +57,7 @@
   .card h2{font-size:.95rem; margin-bottom:8px; display:flex; align-items:center; gap:6px;}
   #detailCard{display:none; border-left:4px solid var(--c-main);}
   #detailCard .genre{font-size:.75rem; color:var(--c-sub);}
+  .stat{font-size:.72rem; color:var(--c-sub); white-space:nowrap; margin-left:4px;}
   #detailCard .close{float:right; cursor:pointer; color:var(--c-sub); font-size:1.1rem; line-height:1;}
   .post{border-top:1px solid var(--c-border); padding:8px 0; font-size:.87rem;}
   .post:first-of-type{border-top:none;}
@@ -145,7 +146,7 @@
         <div id="detailPosts" style="margin-top:10px;"></div>
       </div>
       <div class="card">
-        <h2>🕒 最新の投稿</h2>
+        <h2 id="feedTitle">🕒 最新の投稿</h2>
         <div id="feed"><div class="empty">読み込み中…</div></div>
       </div>
     </div>
@@ -231,6 +232,7 @@ const GENRES = {
   bousai: {label:"防災拠点・避難所", emoji:"🏫", color:"#27ae60"},
   water:  {label:"給水所",           emoji:"🚰", color:"#16a085"},
   medical:{label:"医療機関",         emoji:"🏥", color:"#c0392b"},
+  bath:   {label:"入浴・温泉",       emoji:"♨️", color:"#d35400"},
   road:   {label:"道路規制・通行止め", emoji:"🚧", color:"#8e44ad"},
   other:  {label:"その他",           emoji:"📍", color:"#7f8c8d"}
 };
@@ -245,6 +247,7 @@ let selectedId = null;
 let addMode = false;
 let db = null;             // nullならデモモード
 let osmSpots = [];         // OpenStreetMap由来の施設（未投稿・薄表示）
+let viewCounts = {};       // {spotId: 閲覧数}
 
 // Firestore登録済み拠点＋（未登録の）OSM施設を合わせた表示用リスト
 function allSpots(){
@@ -277,10 +280,22 @@ function loadDemoData(){
 /* ================= 地図 ================= */
 // デフォルト表示：八代市鏡町（鏡交差点付近）を中心に、宇城市〜八代市が収まるズーム
 const map = L.map("map").setView([32.5980, 130.6660], 11);
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+// 地図のベース：施設名・ランドマークが見やすい地理院地図を既定に
+const baseGSI = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png", {
+  attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル</a>',
+  maxZoom:18
+});
+const baseGSIphoto = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg", {
+  attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル（写真）</a>',
+  maxZoom:18
+});
+const baseOSM = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   maxZoom:19
-}).addTo(map);
+});
+baseGSI.addTo(map);
+L.control.layers({"地理院地図（施設名が見やすい）": baseGSI, "OpenStreetMap": baseOSM, "航空写真": baseGSIphoto},
+  null, {position:"topright", collapsed:true}).addTo(map);
 const markerLayer = L.layerGroup().addTo(map);
 
 function makeIcon(genre, selected){
@@ -345,10 +360,24 @@ function renderChips(){
 
 function renderFeed(){
   const el = document.getElementById("feed");
+  const title = document.getElementById("feedTitle");
+  const sel = selectedId ? allSpots().find(x=>x.id===selectedId) : null;
   const items = [];
-  visibleSpots().forEach(s=>spotPosts(s.id).forEach(p=>items.push({s,p})));
+  if(sel){
+    // 施設を選択中は、その施設の投稿のみを表示
+    title.textContent = "🕒 この施設の投稿";
+    spotPosts(sel.id).forEach(p=>items.push({s:sel, p}));
+  }else{
+    title.textContent = "🕒 最新の投稿";
+    visibleSpots().forEach(s=>spotPosts(s.id).forEach(p=>items.push({s,p})));
+  }
   items.sort((a,b)=>b.p.time - a.p.time);
-  if(!items.length){ el.innerHTML = '<div class="empty">該当する投稿がありません。</div>'; return; }
+  if(!items.length){
+    el.innerHTML = sel
+      ? '<div class="empty">この施設への投稿はまだありません。</div>'
+      : '<div class="empty">該当する投稿がありません。</div>';
+    return;
+  }
   el.innerHTML = items.slice(0,50).map(({s,p})=>{
     const g = GENRES[s.genre] || GENRES.other;
     return `<div class="post">
@@ -367,8 +396,9 @@ function renderDetail(){
   const g = GENRES[s.genre] || GENRES.other;
   card.style.display = "block";
   document.getElementById("detailTitle").textContent = g.emoji + " " + s.name;
-  document.getElementById("detailGenre").textContent =
-    g.label + (s.osm ? "（地図データ由来）" : "");
+  document.getElementById("detailGenre").innerHTML =
+    esc(g.label + (s.osm ? "（地図データ由来）" : "")) +
+    ` <span class="stat">💬 ${spotPosts(s.id).length}　👁 ${viewCounts[s.id] || 0}</span>`;
   const list = document.getElementById("detailPosts");
   const posts = [...spotPosts(s.id)].sort((a,b)=>b.time-a.time);
   if(!posts.length){ list.innerHTML = '<div class="empty">まだ投稿がありません。最初の情報を投稿してください。</div>'; }
@@ -381,9 +411,22 @@ function renderDetail(){
 
 function refresh(){ renderChips(); renderMarkers(); renderFeed(); renderDetail(); }
 
+// 閲覧数カウント（同じ端末・同じセッションでは1施設1回まで）
+const viewedThisSession = new Set();
+async function countView(id){
+  if(viewedThisSession.has(id)) return;
+  viewedThisSession.add(id);
+  viewCounts[id] = (viewCounts[id] || 0) + 1;
+  if(!db) return;
+  try{
+    await fs.setDoc(fs.doc(db, "views", id), {count: fs.increment(1)}, {merge:true});
+  }catch(e){ console.error("閲覧数カウントエラー", e); }
+}
+
 function openSpot(id){
   selectedId = id;
   const s = allSpots().find(x=>x.id===id);
+  countView(id);
   refresh();
   if(s){
     map.panTo([s.lat, s.lng]);
@@ -395,7 +438,7 @@ function openSpot(id){
       : '<span style="color:#777;">まだ投稿がありません</span>';
     L.popup({offset:[0,-14]})
       .setLatLng([s.lat, s.lng])
-      .setContent(`<b>${esc(g.emoji + " " + s.name)}</b><br>${latest}<br><span style="color:var(--c-main); font-size:.8em;">↓ 下の詳細欄で閲覧・投稿できます</span>`)
+      .setContent(`<b>${esc(g.emoji + " " + s.name)}</b> <span class="stat">💬 ${posts.length}　👁 ${viewCounts[id] || 0}</span><br>${latest}<br><span style="color:var(--c-main); font-size:.8em;">↓ 下の詳細欄で閲覧・投稿できます</span>`)
       .openOn(map);
   }
   // 詳細カードが見える位置まで自動スクロール
@@ -761,7 +804,8 @@ function loadVisibleRegions(){
   spotIndex.forEach(e=>{ if(bboxIntersects(b, e.bbox)) loadSpotFile(e.file); });
 }
 async function initStaticSpots(){
-  loadSpotFile("core.json");  // 宇城市・八代市・氷川町は常に初期ロード
+  loadSpotFile("core.json");           // 宇城市・八代市・氷川町は常に初期ロード
+  loadSpotFile("../manual-spots.json"); // 手動追加のランドマーク（常に読み込み）
   try{
     const res = await fetch("data/spots/index.json");
     if(res.ok) spotIndex = (await res.json()).files || [];
@@ -814,6 +858,13 @@ async function boot(){
       });
       refresh();
     }, err=>console.error("posts購読エラー", err));
+
+  // 閲覧数：リアルタイム購読
+  fsMod.onSnapshot(fsMod.query(fsMod.collection(db,"views"), fsMod.limit(3000)), snap=>{
+    viewCounts = {};
+    snap.docs.forEach(d=>{ viewCounts[d.id] = (d.data().count) || 0; });
+    renderDetail(); renderFeed();
+  }, err=>console.error("views購読エラー", err));
 }
 boot();
 </script>
