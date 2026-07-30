@@ -11,7 +11,7 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 50
-        && request.resource.data.genre in ['gas','super','bousai','water','medical','bath','road','other']
+        && request.resource.data.genre in ['gas','super','bousai','water','medical','bath','laundry','bank','road','other']
         && request.resource.data.lat is number
         && request.resource.data.lng is number
         && request.resource.data.lat > 24 && request.resource.data.lat < 46
