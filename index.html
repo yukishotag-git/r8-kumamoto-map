@@ -20,7 +20,9 @@
   #tabs{margin-left:auto; display:flex; gap:6px;}
   .tabBtn{border:1px solid rgba(255,255,255,.5); background:transparent; color:#fff; border-radius:16px; padding:5px 14px; font-size:.85rem; cursor:pointer;}
   .tabBtn.active{background:#fff; color:var(--c-main); font-weight:700; border-color:#fff;}
-  #linksView{display:none; flex:1; overflow-y:auto; padding:14px; max-width:640px; margin:0 auto; width:100%;}
+  #linksView, #feedView{display:none; flex:1; overflow-y:auto; padding:14px; max-width:640px; margin:0 auto; width:100%;}
+  #feedView h2{font-size:.95rem; color:var(--c-main); margin-bottom:8px;}
+  #feedView .post{background:var(--c-card); border:1px solid var(--c-border); border-radius:10px; padding:10px 12px; margin-bottom:8px;}
   .linkGroup{margin-bottom:18px;}
   .linkGroup h2{font-size:.95rem; margin-bottom:8px; color:var(--c-main);}
   .linkCard{display:flex; justify-content:space-between; align-items:center; background:var(--c-card); border:1px solid var(--c-border); border-radius:10px; padding:15px 16px; margin-bottom:8px; text-decoration:none; color:var(--c-text); font-size:.95rem;}
@@ -81,6 +83,7 @@
   <span class="note">ログイン不要・みんなで情報を共有するマップです</span>
   <nav id="tabs">
     <button class="tabBtn active" id="tabMap">🗺 マップ</button>
+    <button class="tabBtn" id="tabFeed">📝 投稿一覧</button>
     <button class="tabBtn" id="tabLinks">🏛 公式リンク集</button>
     <button class="tabBtn" id="reloadBtn" title="最新の情報に更新">⟳ 更新</button>
   </nav>
@@ -120,6 +123,11 @@
       </div>
     </div>
   </div>
+</div>
+
+<div id="feedView">
+  <h2>🕒 すべての投稿（新着順）</h2>
+  <div id="globalFeed"><div class="empty">読み込み中…</div></div>
 </div>
 
 <div id="linksView">
@@ -430,17 +438,47 @@ document.getElementById("searchBox").addEventListener("input", e=>{
   searchText = e.target.value; refresh();
 });
 
-/* ================= タブ切替（マップ／公式リンク集） ================= */
+/* ================= タブ切替（マップ／投稿一覧／公式リンク集） ================= */
+const VIEWS = {map:"layout", feed:"feedView", links:"linksView"};
+const TABS  = {map:"tabMap", feed:"tabFeed", links:"tabLinks"};
 function showTab(which){
-  const isMap = which === "map";
-  document.getElementById("layout").style.display = isMap ? "flex" : "none";
-  document.getElementById("linksView").style.display = isMap ? "none" : "block";
-  document.getElementById("tabMap").classList.toggle("active", isMap);
-  document.getElementById("tabLinks").classList.toggle("active", !isMap);
-  if(isMap) setTimeout(()=>map.invalidateSize(), 100);
+  Object.keys(VIEWS).forEach(k=>{
+    document.getElementById(VIEWS[k]).style.display =
+      (k === which) ? (k === "map" ? "flex" : "block") : "none";
+    document.getElementById(TABS[k]).classList.toggle("active", k === which);
+  });
+  if(which === "map") setTimeout(()=>map.invalidateSize(), 100);
+  if(which === "feed") renderGlobalFeed();
 }
 document.getElementById("tabMap").onclick = ()=>showTab("map");
+document.getElementById("tabFeed").onclick = ()=>showTab("feed");
 document.getElementById("tabLinks").onclick = ()=>showTab("links");
+
+/* すべての施設を対象にした投稿一覧（新着順） */
+async function renderGlobalFeed(){
+  // 拠点名を解決するため、未読込の地域データもすべて読み込む
+  await Promise.all(spotIndex.map(e=>loadSpotFile(e.file)));
+  const byId = {};
+  allSpots().forEach(s=>byId[s.id] = s);
+  const items = [];
+  Object.entries(postsMap).forEach(([sid, posts])=>posts.forEach(p=>items.push({sid, p})));
+  items.sort((a,b)=>b.p.time - a.p.time);
+  const el = document.getElementById("globalFeed");
+  if(!items.length){ el.innerHTML = '<div class="empty">まだ投稿がありません。</div>'; return; }
+  el.innerHTML = items.slice(0, 300).map(({sid, p})=>{
+    const s = byId[sid];
+    const g = s ? (GENRES[s.genre] || GENRES.other) : GENRES.other;
+    const nm = s ? s.name : "（不明な拠点）";
+    return `<div class="post">
+      <div>${esc(p.text)}</div>
+      <div class="meta">${g.emoji} <span class="spotname" data-id="${esc(sid)}">${esc(nm)}</span>
+        ｜ ${esc(p.name)||"匿名"} ｜ ${rel(p.time)}</div>
+    </div>`;
+  }).join("");
+  el.querySelectorAll(".spotname").forEach(a=>{
+    a.onclick = ()=>{ showTab("map"); openSpot(a.dataset.id); };
+  });
+}
 document.getElementById("reloadBtn").onclick = ()=>location.reload();
 
 /* ================= 現在地 ================= */
