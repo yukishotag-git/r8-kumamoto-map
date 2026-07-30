@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>令和8年熊本地震 被災者応援サイト</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#2c6e49">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
   :root{
@@ -20,7 +23,7 @@
   #tabs{margin-left:auto; display:flex; gap:6px;}
   .tabBtn{border:1px solid rgba(255,255,255,.5); background:transparent; color:#fff; border-radius:16px; padding:5px 14px; font-size:.85rem; cursor:pointer;}
   .tabBtn.active{background:#fff; color:var(--c-main); font-weight:700; border-color:#fff;}
-  #linksView, #feedView, #helpView, #authorView{display:none; flex:1; overflow-y:auto; padding:14px; max-width:640px; margin:0 auto; width:100%;}
+  #linksView, #feedView, #helpView, #authorView, #wallView{display:none; flex:1; overflow-y:auto; padding:14px; max-width:640px; margin:0 auto; width:100%;}
   .tabBtn.help{border-color:#ffb3a0;}
   .tabBtn.help.active{background:var(--c-accent); color:#fff; border-color:var(--c-accent);}
   .hstatus{font-size:.72rem; font-weight:700; border-radius:10px; padding:2px 8px; color:#fff;}
@@ -93,8 +96,11 @@
     header{padding:6px 10px 8px; gap:4px; flex-wrap:wrap; align-items:center;}
     header .note{display:none;}
     header h1{font-size:.92rem; white-space:nowrap; width:100%;}
-    #tabs{margin-left:0; width:100%; gap:5px; flex-wrap:nowrap; justify-content:space-between;}
-    .tabBtn{padding:7px 4px; font-size:.78rem; white-space:nowrap; flex:1; text-align:center;
+    /* ボタンが増えたため横スクロール可能に（読みやすさを維持） */
+    #tabs{margin-left:0; width:100%; gap:5px; flex-wrap:nowrap; overflow-x:auto; padding-bottom:2px;
+          scrollbar-width:none; -webkit-overflow-scrolling:touch;}
+    #tabs::-webkit-scrollbar{display:none;}
+    .tabBtn{padding:7px 9px; font-size:.78rem; white-space:nowrap; flex:0 0 auto; text-align:center;
             background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.35);}
     .tabBtn.active{background:#fff; border-color:#fff;}
     .tabBtn.help{background:rgba(255,140,110,.35); border-color:#ffb3a0;}
@@ -116,7 +122,8 @@
   <nav id="tabs">
     <button class="tabBtn active" id="tabMap">🗺 マップ</button>
     <button class="tabBtn help" id="tabHelp">🆘<span class="lbl"> 緊急</span>ヘルプ</button>
-    <button class="tabBtn" id="tabFeed">📝 投稿<span class="lbl">一覧</span></button>
+    <button class="tabBtn" id="tabFeed">📝 マップ投稿<span class="lbl">一覧</span></button>
+    <button class="tabBtn" id="tabWall">📣 フリー投稿</button>
     <button class="tabBtn" id="tabLinks">🏛<span class="lbl"> 公式</span>リンク<span class="lbl">集</span></button>
     <button class="tabBtn icon" id="shareBtn" title="このサイトを共有（QRコード）">📱<span class="lbl"> 共有</span></button>
     <button class="tabBtn icon" id="tabAuthor" title="作者へ要望を送る">✉<span class="lbl"> 作者へ</span></button>
@@ -158,6 +165,24 @@
       </div>
     </div>
   </div>
+</div>
+
+<div id="wallView">
+  <div class="card" style="border-left:4px solid var(--c-main); margin-bottom:12px;">
+    <h2 style="font-size:.95rem; margin-bottom:6px;">📣 フリー投稿</h2>
+    <div style="font-size:.78rem; color:var(--c-sub); margin-bottom:8px;">
+      応援メッセージ、役立つ情報、お困りごと以外の共有などを自由に投稿できます。匿名でも構いません。
+      個人情報や誹謗中傷はご遠慮ください。
+    </div>
+    <textarea id="wallText" maxlength="500" placeholder="自由に投稿（例：〇〇公園で炊き出しやってます／みなさん無理せず休んでください）"></textarea>
+    <div class="formRow" style="display:flex; gap:8px; flex-wrap:wrap;">
+      <input id="wallName" type="text" maxlength="30" placeholder="お名前・団体名（任意）" style="flex:2; min-width:140px;">
+      <input id="wallFrom" type="text" maxlength="30" placeholder="地域・所属（任意 例：八代市／〇〇ボランティア）" style="flex:2; min-width:140px;">
+      <button class="btn" id="wallSubmit" style="flex:0 0 auto;">投稿</button>
+    </div>
+  </div>
+  <input id="wallSearch" type="search" placeholder="投稿を検索（例：炊き出し ボランティア 応援）">
+  <div id="wallList" style="margin-top:12px;"><div class="empty">読み込み中…</div></div>
 </div>
 
 <div id="authorView">
@@ -581,8 +606,8 @@ document.getElementById("searchBox").addEventListener("input", e=>{
 });
 
 /* ================= タブ切替（マップ／投稿一覧／公式リンク集） ================= */
-const VIEWS = {map:"layout", help:"helpView", feed:"feedView", links:"linksView", author:"authorView"};
-const TABS  = {map:"tabMap", help:"tabHelp", feed:"tabFeed", links:"tabLinks", author:"tabAuthor"};
+const VIEWS = {map:"layout", help:"helpView", feed:"feedView", wall:"wallView", links:"linksView", author:"authorView"};
+const TABS  = {map:"tabMap", help:"tabHelp", feed:"tabFeed", wall:"tabWall", links:"tabLinks", author:"tabAuthor"};
 function showTab(which){
   Object.keys(VIEWS).forEach(k=>{
     document.getElementById(VIEWS[k]).style.display =
@@ -593,12 +618,72 @@ function showTab(which){
   if(which === "feed") renderGlobalFeed();
   if(which === "help") initHelp();
   if(which === "author") initFeedback();
+  if(which === "wall") initWall();
 }
 document.getElementById("tabMap").onclick = ()=>showTab("map");
 document.getElementById("tabHelp").onclick = ()=>showTab("help");
 document.getElementById("tabFeed").onclick = ()=>showTab("feed");
 document.getElementById("tabLinks").onclick = ()=>showTab("links");
 document.getElementById("tabAuthor").onclick = ()=>showTab("author");
+document.getElementById("tabWall").onclick = ()=>showTab("wall");
+
+/* ================= フリー投稿（エール・情報共有） ================= */
+let wallPosts = [];
+let wallSubscribed = false;
+let wallSearch = "";
+function initWall(){
+  if(wallSubscribed){ renderWall(); return; }
+  wallSubscribed = true;
+  if(!db){ renderWall(); return; }
+  fs.onSnapshot(fs.query(fs.collection(db,"wall"), fs.orderBy("createdAt","desc"), fs.limit(300)), snap=>{
+    wallPosts = snap.docs.map(d=>{
+      const v = d.data();
+      return {text:v.text, name:v.nickname||"", from:v.from||"", time:tsMillis(v.createdAt)};
+    });
+    renderWall();
+  }, err=>console.error("wall購読エラー", err));
+}
+function renderWall(){
+  const el = document.getElementById("wallList");
+  const q = wallSearch.trim().toLowerCase();
+  const words = q.split(/[\s　]+/).filter(Boolean);
+  const items = wallPosts.filter(p=>{
+    if(!words.length) return true;
+    const hay = [p.text, p.name, p.from].join(" ").toLowerCase();
+    return words.every(w=>hay.includes(w));
+  });
+  if(!items.length){
+    el.innerHTML = q
+      ? '<div class="empty">検索に一致する投稿がありません。</div>'
+      : '<div class="empty">まだ投稿がありません。最初の一言をお寄せください。</div>';
+    return;
+  }
+  el.innerHTML = items.map(p=>
+    `<div style="background:var(--c-card); border:1px solid var(--c-border); border-radius:10px; padding:10px 12px; margin-bottom:8px; font-size:.88rem;">
+      <div>${esc(p.text)}</div>
+      <div class="meta">${esc(p.name)||"匿名"}${p.from ? "（"+esc(p.from)+"）" : ""} ｜ ${rel(p.time)}</div>
+    </div>`).join("");
+}
+document.getElementById("wallSearch").addEventListener("input", e=>{ wallSearch = e.target.value; renderWall(); });
+document.getElementById("wallSubmit").onclick = async (e)=>{
+  const btn = e.target;
+  const text = document.getElementById("wallText").value.trim();
+  if(!text) return;
+  const name = document.getElementById("wallName").value.trim();
+  const from = document.getElementById("wallFrom").value.trim();
+  btn.disabled = true;
+  try{
+    if(db){
+      await fs.addDoc(fs.collection(db,"wall"),
+        {text, nickname:name, from, createdAt:fs.serverTimestamp()});
+    }else{
+      wallPosts.unshift({text, name, from, time:Date.now()});
+      renderWall();
+    }
+    document.getElementById("wallText").value = "";
+  }catch(err){ alert("投稿に失敗しました: " + err.message); }
+  btn.disabled = false;
+};
 
 /* ================= 共有（QRコード） ================= */
 const SHARE_URL = "https://r8kumamoto.promate2.com/";
