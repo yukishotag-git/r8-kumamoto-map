@@ -775,41 +775,95 @@ document.getElementById("searchBox").addEventListener("input", e=>{
   searchText = e.target.value; refresh();
 });
 
-/* ================= 地名検索（その周辺へ移動） ================= */
+/* ================= 地名検索（被災地周辺を優先） ================= */
 let placeMarker = null;
-async function gotoPlace(){
-  const q = document.getElementById("placeBox").value.trim();
-  const msg = document.getElementById("placeMsg");
-  if(!q) return;
-  msg.textContent = "検索中…";
-  // まず読み込み済みの拠点名から一致を探す（通信不要で速い）
-  const local = allSpots().find(s=>s.name.includes(q));
+// 熊本県の範囲。この外の候補（他県）は除外する
+const KUMAMOTO_BB = {s:32.05, w:129.75, n:33.30, e:131.35};
+// 被災中心（八代市鏡町）からの距離が近い候補を優先する
+const CORE_POINT = {lat:32.5980, lng:130.6660};
+
+function moveToPlace(lat, lng, title){
+  map.setView([lat, lng], 15);
+  if(placeMarker) placeMarker.remove();
+  placeMarker = L.circleMarker([lat, lng],
+    {radius:10, color:"#fff", weight:2, fillColor:"#2c6e49", fillOpacity:.9})
+    .addTo(map).bindTooltip(title, {direction:"top"});
+  renderMarkers();
+  document.getElementById("placeMsg").innerHTML = "移動しました：" + esc(title);
+}
+
+async function gsiSearch(q){
   try{
-    // 国土地理院の住所・地名検索（日本の地名に強い）
     const url = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=" + encodeURIComponent(q);
     const res = await fetch(url);
-    const j = res.ok ? await res.json() : [];
-    if(Array.isArray(j) && j.length && j[0].geometry){
-      const c = j[0].geometry.coordinates;   // [lng, lat]
-      const title = (j[0].properties && j[0].properties.title) || q;
-      map.setView([c[1], c[0]], 15);
-      if(placeMarker) placeMarker.remove();
-      placeMarker = L.circleMarker([c[1], c[0]],
-        {radius:10, color:"#fff", weight:2, fillColor:"#2c6e49", fillOpacity:.9})
-        .addTo(map).bindTooltip(title, {permanent:false, direction:"top"});
-      msg.textContent = "移動しました：" + title;
-      renderMarkers();
-      return;
-    }
-  }catch(e){ /* 通信できなければローカル一致にフォールバック */ }
+    if(!res.ok) return [];
+    const j = await res.json();
+    if(!Array.isArray(j)) return [];
+    return j.map(x=>{
+      const c = x.geometry && x.geometry.coordinates;
+      if(!c) return null;
+      return {lat:c[1], lng:c[0], title:(x.properties && x.properties.title) || q};
+    }).filter(Boolean);
+  }catch(e){ return []; }
+}
 
-  if(local){
-    map.setView([local.lat, local.lng], 16);
-    openSpot(local.id);
-    msg.textContent = "施設名で一致しました：" + local.name;
-  }else{
-    msg.textContent = "見つかりませんでした。市町村名を付けるとヒットしやすくなります（例：八代市鏡町）";
+async function gotoPlace(){
+  const raw = document.getElementById("placeBox").value.trim();
+  const msg = document.getElementById("placeMsg");
+  if(!raw) return;
+  msg.textContent = "検索中…";
+
+  // 県名が無ければ「熊本県」を付けた検索も併せて実施
+  const queries = /[都道府県]/.test(raw) ? [raw] : ["熊本県" + raw, raw];
+  let cands = [];
+  for(const q of queries){
+    cands = cands.concat(await gsiSearch(q));
+    if(cands.length >= 20) break;
   }
+
+  // 熊本県内に限定し、被災中心に近い順に並べる
+  cands = cands.filter(c =>
+    c.lat > KUMAMOTO_BB.s && c.lat < KUMAMOTO_BB.n &&
+    c.lng > KUMAMOTO_BB.w && c.lng < KUMAMOTO_BB.e);
+  // 同一地点の重複を除去
+  const seen = new Set();
+  cands = cands.filter(c=>{
+    const k = c.lat.toFixed(4) + "," + c.lng.toFixed(4);
+    if(seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+  const distKm = c => {
+    const dLat = (c.lat - CORE_POINT.lat) * 111;
+    const dLng = (c.lng - CORE_POINT.lng) * 111 * Math.cos(c.lat * Math.PI/180);
+    return Math.sqrt(dLat*dLat + dLng*dLng);
+  };
+  cands.sort((a,b)=>distKm(a) - distKm(b));
+
+  // 読み込み済みの施設名からの一致も候補に加える
+  const localHits = allSpots().filter(s=>s.name.includes(raw)).slice(0, 5)
+    .map(s=>({lat:s.lat, lng:s.lng, title:s.name + "（施設）", spotId:s.id}));
+
+  const all = cands.slice(0, 8).concat(localHits);
+  if(!all.length){
+    msg.textContent = "熊本県内で見つかりませんでした。市町村名を付けてお試しください（例：八代市鏡町）";
+    return;
+  }
+  if(all.length === 1){
+    const c = all[0];
+    if(c.spotId) openSpot(c.spotId); else moveToPlace(c.lat, c.lng, c.title);
+    return;
+  }
+  // 候補が複数のときは選択させる（被災地に近い順）
+  msg.innerHTML = "候補（被災地に近い順）：" + all.map((c,i)=>
+    `<a href="#" class="placeCand" data-i="${i}" style="display:inline-block; margin:3px 6px 0 0; color:var(--c-main);">${esc(c.title)}（約${Math.round(distKm(c))}km）</a>`
+  ).join("");
+  msg.querySelectorAll(".placeCand").forEach(a=>{
+    a.onclick = ev=>{
+      ev.preventDefault();
+      const c = all[Number(a.dataset.i)];
+      if(c.spotId) openSpot(c.spotId); else moveToPlace(c.lat, c.lng, c.title);
+    };
+  });
 }
 document.getElementById("placeGo").onclick = gotoPlace;
 document.getElementById("placeBox").addEventListener("keydown", e=>{
