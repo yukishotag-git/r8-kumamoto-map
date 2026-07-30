@@ -85,7 +85,10 @@
   #modal h2{font-size:1rem; margin-bottom:4px;}
   #modal .actions{display:flex; gap:8px; justify-content:flex-end; margin-top:12px;}
   .spotIcon{display:flex; align-items:center; justify-content:center; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.4); font-size:15px; background:#fff;}
-  footer{background:#3a3a3a; color:#ccc; font-size:.68rem; padding:6px 12px; line-height:1.5;}
+  footer{background:#3a3a3a; color:#ccc; font-size:.68rem; padding:6px 12px; line-height:1.5;
+         display:flex; align-items:center; gap:10px;}
+  footer .pcNote, footer .spNote{flex:1; min-width:0;}
+  #footStats{flex:0 0 auto; color:#9a9a9a; white-space:nowrap;}
   .spNote{display:none;}
   .locBtn{font-size:17px; line-height:30px; width:30px; height:30px; text-align:center; display:block; text-decoration:none; background:#fff;}
   @media (max-width:768px){
@@ -245,8 +248,9 @@
 </div>
 
 <footer>
-  <span class="pcNote">※投稿は利用者の善意による情報であり、正確性は保証されません。避難・給水・支援物資などの公式情報は、熊本県・各市町村の公式サイトや防災無線を必ずご確認ください。緊急時は119/110へ。</span>
-  <span class="spNote">※投稿は善意の情報で正確性は保証されません。公式情報を必ず確認。緊急時は119/110。</span>
+  <span class="pcNote">※投稿は利用者の善意による情報です。避難・給水・支援物資などは各自治体の公式情報を必ずご確認ください。緊急時は119/110へ。</span>
+  <span class="spNote">※投稿は善意の情報です。公式情報を必ず確認。緊急時は119/110。</span>
+  <span id="footStats"></span>
 </footer>
 
 <div id="shareBg">
@@ -490,16 +494,36 @@ async function countSiteView(){
     await fs.setDoc(fs.doc(db, "views", "_site"), {count: fs.increment(1)}, {merge:true});
   }catch(e){ console.error("サイト閲覧数カウントエラー", e); }
 }
-function renderSiteStats(){
+// 各コレクションの件数（件数のみ取得するので通信量はごくわずか）
+let otherCounts = {wall:0, help:0, helpReplies:0, feedback:0};
+async function fetchOtherCounts(){
+  if(!db) return;
+  try{
+    const names = ["wall", "help", "helpReplies", "feedback"];
+    const res = await Promise.all(names.map(n=>fs.getCountFromServer(fs.collection(db, n))));
+    names.forEach((n, i)=>{ otherCounts[n] = res[i].data().count; });
+    renderStats();
+  }catch(e){ console.error("件数取得エラー", e); }
+}
+function totalPosts(){
+  const mapPosts = Object.values(postsMap).reduce((n, a)=>n + a.length, 0);
+  return mapPosts + otherCounts.wall + otherCounts.help + otherCounts.helpReplies + otherCounts.feedback;
+}
+function renderStats(){
+  const site = viewCounts["_site"] || 0;
+  const total = totalPosts();
+  const foot = document.getElementById("footStats");
+  if(foot) foot.textContent = `👁 ${site.toLocaleString()}　💬 ${total.toLocaleString()}`;
+
   const el = document.getElementById("siteStats");
   if(!el) return;
-  const site = viewCounts["_site"] || 0;
-  const posts = Object.values(postsMap).reduce((n, a)=>n + a.length, 0);
-  const spotN = allSpots().length;
+  const mapPosts = Object.values(postsMap).reduce((n, a)=>n + a.length, 0);
   el.innerHTML = `👁 サイト閲覧数: <b>${site.toLocaleString()}</b> 回<br>` +
-    `💬 マップへの投稿: <b>${posts.toLocaleString()}</b> 件　📣 フリー投稿: <b>${wallPosts.length}</b> 件　🆘 ヘルプ: <b>${helpThreads.length}</b> 件<br>` +
-    `<span style="font-size:.75rem;">※閲覧数は同じ端末の同じ訪問では1回として数えます（読み込み済みの拠点 ${spotN.toLocaleString()} 件）</span>`;
+    `💬 投稿合計: <b>${total.toLocaleString()}</b> 件` +
+    `（マップ ${mapPosts.toLocaleString()}／フリー ${otherCounts.wall}／ヘルプ ${otherCounts.help}＋返信 ${otherCounts.helpReplies}／ご意見 ${otherCounts.feedback}）<br>` +
+    `<span style="font-size:.75rem;">※閲覧数は同じ端末の同じ訪問では1回として数えます</span>`;
 }
+const renderSiteStats = renderStats;  // 互換用
 
 // 閲覧数カウント（同じ端末・同じセッションでは1施設1回まで）
 const viewedThisSession = new Set();
@@ -1079,6 +1103,7 @@ async function boot(){
         (postsMap[v.spotId] = postsMap[v.spotId] || []).push({text:v.text, name:v.nickname||"", time:t});
       });
       refresh();
+      renderStats();
     }, err=>console.error("posts購読エラー", err));
 
   // 閲覧数：リアルタイム購読
@@ -1088,7 +1113,8 @@ async function boot(){
     renderDetail(); renderFeed(); renderSiteStats();
   }, err=>console.error("views購読エラー", err));
 
-  countSiteView();  // サイト全体の閲覧数を1セッション1回カウント
+  countSiteView();    // サイト全体の閲覧数を1セッション1回カウント
+  fetchOtherCounts(); // フッター表示用に各投稿の件数を取得
 }
 boot();
 </script>
