@@ -33,6 +33,19 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // 作者へのご意見・要望：誰でも閲覧・投稿可（編集/削除は不可）
+    match /feedback/{id} {
+      allow read: if true;
+      allow create: if
+        request.resource.data.keys().hasOnly(['text','nickname','createdAt'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() <= 20;
+      allow update, delete: if false;
+    }
+
     // 閲覧数：誰でも閲覧可。1ずつの増加のみ許可
     match /views/{id} {
       allow read: if true;
