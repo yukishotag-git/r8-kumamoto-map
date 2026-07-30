@@ -32,5 +32,39 @@ service cloud.firestore {
         && request.resource.data.nickname.size() <= 20;
       allow update, delete: if false;
     }
+
+    // 緊急ヘルプ：誰でも閲覧・投稿可。ステータス変更のみ更新を許可
+    match /help/{id} {
+      allow read: if true;
+      allow create: if
+        request.resource.data.keys().hasOnly(['text','nickname','category','status','createdAt','updatedAt'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() <= 20
+        && request.resource.data.category is string
+        && request.resource.data.category.size() <= 20
+        && request.resource.data.status == 'open';
+      // 更新できるのは status と updatedAt のみ（本文の改ざん防止）
+      allow update: if
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt'])
+        && request.resource.data.status in ['open','resolved','closed'];
+      allow delete: if false;
+    }
+
+    // ヘルプへの返信：誰でも閲覧・投稿可（編集/削除は不可）
+    match /helpReplies/{id} {
+      allow read: if true;
+      allow create: if
+        request.resource.data.keys().hasOnly(['helpId','text','nickname','createdAt'])
+        && request.resource.data.helpId is string
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() <= 20;
+      allow update, delete: if false;
+    }
   }
 }
