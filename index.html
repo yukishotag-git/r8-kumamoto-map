@@ -54,7 +54,7 @@
   footer{background:#3a3a3a; color:#ccc; font-size:.68rem; padding:6px 12px; line-height:1.5;}
   @media (max-width:768px){
     #layout{flex-direction:column;}
-    #map{height:48vh; flex:none;}
+    #map{height:48vh; height:48dvh; flex:none;}
     #sidebar{width:100%; max-width:100%; flex:1; border-left:none; border-top:1px solid var(--c-border);}
     header h1{font-size:.95rem;}
   }
@@ -80,7 +80,7 @@
       <button id="addSpotBtn">＋ 新しい拠点を地図に追加</button>
       <div style="font-size:.7rem; color:var(--c-sub); margin-top:6px;">薄い印は地図データ（OpenStreetMap）由来の施設です。タップして投稿すると共有拠点になります。通行止めを見つけたら「＋新しい拠点」→🚧道路規制で共有してください。</div>
       <div style="font-size:.72rem; margin-top:6px;">公式の道路情報：
-        <a href="https://www.jartic.or.jp/" target="_blank" rel="noopener">JARTIC</a> ／
+        <a href="https://www.jartic.or.jp/" target="_blank" rel="noopener">JARTIC</a>（開いたら「九州・沖縄」→「熊本」を選択）／
         <a href="https://www.qsr.mlit.go.jp/bousai_joho/tecforce/access.html" target="_blank" rel="noopener">九州通れるマップ</a> ／
         <a href="https://www.pref.kumamoto.jp/soshiki/102/247195.html" target="_blank" rel="noopener">熊本県道路情報</a>
       </div>
@@ -441,7 +441,8 @@ async function fetchOsmSpots(){
       const lng = el.lon !== undefined ? el.lon : (el.center && el.center.lon);
       const t = el.tags || {};
       const genre = genreFromTags(t);
-      const name = t.name || t.brand || (GENRES[genre].label + "（名称不明）");
+      let name = t.name || t.brand || (GENRES[genre].label + "（名称不明）");
+      if(t.branch && !name.includes(t.branch)) name += " " + t.branch;  // 〇〇店まで表示
       return {id:"osm-" + el.type + "-" + el.id, name, genre, lat, lng, osm:true};
     }).filter(s=>typeof s.lat === "number" && typeof s.lng === "number");
     setOsmStatus("");
@@ -456,6 +457,11 @@ map.on("moveend", ()=>{
   clearTimeout(osmTimer); osmTimer = setTimeout(fetchOsmSpots, 800);
 });
 fetchOsmSpots();
+
+// スマホ対策：レイアウト確定後にサイズ再計算（初期化時に高さ0だと地図が表示されないため）
+setTimeout(()=>map.invalidateSize(), 400);
+window.addEventListener("resize", ()=>map.invalidateSize());
+window.addEventListener("orientationchange", ()=>setTimeout(()=>map.invalidateSize(), 300));
 
 /* ================= 起動 ================= */
 async function boot(){

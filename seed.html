@@ -104,7 +104,8 @@ out center 6000;`;
         const lat = el.lat !== undefined ? el.lat : (el.center && el.center.lat);
         const lng = el.lon !== undefined ? el.lon : (el.center && el.center.lon);
         const t = el.tags || {};
-        const name = t.name || t.brand || null;
+        let name = t.name || t.brand || null;
+        if(name && t.branch && !name.includes(t.branch)) name += " " + t.branch;  // 〇〇店まで含める
         return {osmId:"osm-"+el.type+"-"+el.id, name, genre:genreFromTags(t), lat, lng};
       }).filter(s=>s.name && s.genre!=="other" && typeof s.lat==="number" && typeof s.lng==="number");
     }catch(e){ lastErr = e; }
