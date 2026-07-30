@@ -152,6 +152,41 @@ async function findByName(keyword){
   return null;
 }
 
+// ②' 住所で得た概略位置の周辺から、施設名でピンポイントの座標を探し直す
+//     （国土地理院の住所検索は「大字」までしか解決できない場合があり、同一座標に重なるのを防ぐ）
+function nameKey(name){
+  // 「セブン-イレブン 宇土松原町店」→「セブン-イレブン」、「嘉島町役場」→「嘉島町役場」
+  const base = name.replace(/（.*?）/g, "").trim();
+  const head = base.split(/[\s　]/)[0];
+  return (head.length >= 3 ? head : base).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+async function refineByName(name, pos){
+  const key = nameKey(name);
+  const q = `[out:json][timeout:40];nwr["name"~"${key}"](around:2500,${pos.lat},${pos.lng});out center 30;`;
+  for(let i = 0; i < 2; i++){
+    try{
+      if(i > 0) await sleep(8000);
+      const res = await fetch(ENDPOINTS[i], {
+        method:"POST",
+        headers:{"Content-Type":"application/x-www-form-urlencoded","Accept":"application/json","User-Agent":UA},
+        body:"data=" + encodeURIComponent(q)
+      });
+      if(!res.ok) throw new Error("HTTP " + res.status);
+      const j = await res.json();
+      const cands = (j.elements || []).map(el=>({
+        lat: el.lat !== undefined ? el.lat : el.center && el.center.lat,
+        lng: el.lon !== undefined ? el.lon : el.center && el.center.lon,
+        name: (el.tags||{}).name || ""
+      })).filter(x=>typeof x.lat === "number");
+      if(!cands.length) return null;
+      // 住所から得た位置に最も近いものを採用
+      cands.sort((a,b)=>distM(pos,a) - distM(pos,b));
+      return {...cands[0], src:"住所＋OSM照合", matched:cands[0].name};
+    }catch(e){ /* 失敗時は住所の座標をそのまま使う */ }
+  }
+  return null;
+}
+
 // ③ Nominatim（予備）
 async function geocodeNominatim(q){
   const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=jp"
@@ -202,7 +237,15 @@ for(const lm of LANDMARKS){
     if(lm.addr){
       await sleep(700);
       pos = await geocodeGSI(lm.addr);
-      if(!pos){ await sleep(1200); pos = await findByName(norm(lm.name).slice(0,6)); }
+      if(pos){
+        // 住所の概略位置の周辺で施設名を照合し、より正確な座標に置き換える
+        await sleep(2200);
+        const refined = await refineByName(lm.name, pos);
+        if(refined) pos = refined;
+      }else{
+        await sleep(1500);
+        pos = await findByName(nameKey(lm.name));
+      }
     }else{
       await sleep(2500);
       pos = await findByName(lm.q);
