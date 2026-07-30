@@ -104,6 +104,8 @@
          display:flex; align-items:center; gap:10px;}
   footer .pcNote, footer .spNote{flex:1; min-width:0;}
   #footStats{flex:0 0 auto; color:#9a9a9a; white-space:nowrap;}
+  #liveState{flex:0 0 auto; color:#9a9a9a; white-space:nowrap; font-size:.62rem;}
+  #liveState.stale{color:#e8a33d;}
   .spNote{display:none;}
   .locBtn{font-size:17px; line-height:30px; width:30px; height:30px; text-align:center; display:block; text-decoration:none; background:#fff;}
   @media (max-width:768px){
@@ -266,6 +268,7 @@
   <span class="pcNote">※投稿は利用者の善意による情報です。避難・給水・支援物資などは各自治体の公式情報を必ずご確認ください。緊急時は119/110へ。</span>
   <span class="spNote">※投稿は善意の情報です。公式情報を必ず確認。緊急時は119/110。</span>
   <span id="footStats"></span>
+  <span id="liveState" title="他の人の投稿は自動で反映されます">🟢 自動更新</span>
 </footer>
 
 <div id="shareBg">
@@ -1059,6 +1062,35 @@ if(window.matchMedia("(max-width:768px)").matches){
   goToCurrentLocation(14, true);
 }
 
+/* ================= 15秒ごとの自動更新 =================
+   投稿自体はFirestoreの購読で即座に反映されるが、
+   「〇分前」などの経過時間表示と件数を定期的に描き直して常に最新に保つ。 */
+let lastDataAt = Date.now();
+function markUpdated(){ lastDataAt = Date.now(); }
+
+setInterval(()=>{
+  if(document.hidden) return;   // 非表示タブでは動かさない（通信・電池の節約）
+  renderFeed();
+  renderDetail();
+  renderStats();
+  if(wallSubscribed) renderWall();
+  if(helpSubscribed) renderHelp();
+  if(fbSubscribed) renderFeedback();
+
+  const el = document.getElementById("liveState");
+  if(el){
+    const min = Math.floor((Date.now() - lastDataAt) / 60000);
+    // 10分以上サーバーから更新が届かない場合は控えめに注意表示
+    el.className = min >= 10 ? "stale" : "";
+    el.textContent = min >= 10 ? `🟡 接続確認中（${min}分）` : "🟢 自動更新";
+  }
+}, 15000);
+
+// 復帰時（スリープ解除・タブ切替）はすぐ再描画
+document.addEventListener("visibilitychange", ()=>{
+  if(!document.hidden){ refresh(); renderStats(); }
+});
+
 /* ================= 静的スポットデータの読み込み =================
    拠点データはGitHub Actionsが生成する data/spots/*.json から取得。
    core.json（宇城市・八代市・氷川町）は初期表示で必ず読み込み、
@@ -1128,6 +1160,7 @@ async function boot(){
       return {id:d.id, name:v.name, genre:v.genre, lat:v.lat, lng:v.lng, osmId:v.osmId || null};
     }).filter(s=>typeof s.lat==="number" && typeof s.lng==="number");
     refresh();
+    markUpdated();
   }, err=>console.error("spots購読エラー", err));
 
   // 投稿：新しい順に最大1000件をリアルタイム購読
@@ -1142,6 +1175,7 @@ async function boot(){
       });
       refresh();
       renderStats();
+      markUpdated();
     }, err=>console.error("posts購読エラー", err));
 
   // 閲覧数：リアルタイム購読
