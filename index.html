@@ -642,6 +642,14 @@ function renderDetail(){
   document.getElementById("detailGenre").innerHTML =
     esc(g.label + (s.osm ? "（地図データ由来）" : "")) +
     ` <span class="stat">💬 ${spotPosts(s.id).length}　👁 ${viewCounts[s.id] || 0}</span>`;
+  // 電話番号・営業時間（登録がある施設のみ）
+  const info = [];
+  if(s.hours) info.push("🕒 " + esc(s.hours));
+  if(s.tel) info.push(`☎ <a href="tel:${esc(s.tel.replace(/[^0-9+]/g,""))}">${esc(s.tel)}</a>`);
+  if(info.length){
+    document.getElementById("detailGenre").innerHTML += `<br><span class="stat">${info.join("　")}</span>`;
+  }
+
   // 地図アプリ・経路案内ボタン（スマホではアプリが起動する）
   const act = document.getElementById("detailActions");
   if(act){
@@ -1567,7 +1575,8 @@ async function boot(){
   fsMod.onSnapshot(fsMod.query(fsMod.collection(db,"spots"), fsMod.limit(5000)), snap=>{
     spots = snap.docs.map(d=>{
       const v = d.data();
-      return {id:d.id, name:v.name, genre:v.genre, lat:v.lat, lng:v.lng, osmId:v.osmId || null};
+      return {id:d.id, name:v.name, genre:v.genre, lat:v.lat, lng:v.lng, osmId:v.osmId || null,
+              tel:v.tel || null, hours:v.hours || null};
     }).filter(s=>typeof s.lat==="number" && typeof s.lng==="number");
     refresh();
     markUpdated();

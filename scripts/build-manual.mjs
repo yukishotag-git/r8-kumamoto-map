@@ -39,19 +39,6 @@ const LANDMARKS = [
   {name:"氷川町立竜北中学校", genre:"bousai", addr:"熊本県八代郡氷川町吉本515"},
   {name:"氷川町立氷川中学校", genre:"bousai", addr:"熊本県八代郡氷川町宮原680"},
 
-  // ===== コンビニ =====
-  {name:"セブン-イレブン 宇土松原町店", genre:"super", addr:"熊本県宇土市松原町11-1"},
-  {name:"ファミリーマート 宇土堺町店", genre:"super", addr:"熊本県宇土市堺町51-1"},
-  {name:"ローソン 宇土境目店", genre:"super", addr:"熊本県宇土市境目町400-1"},
-  {name:"セブン-イレブン 宇城松橋曲野店", genre:"super", addr:"熊本県宇城市松橋町曲野1182-1"},
-  {name:"ファミリーマート 宇城松橋きらら店", genre:"super", addr:"熊本県宇城市松橋町きらら2-1-2"},
-  {name:"ローソン 宇城小川町店", genre:"super", addr:"熊本県宇城市小川町河江12-1"},
-  {name:"セブン-イレブン 八代インター店", genre:"super", addr:"熊本県八代市海士江町2862-1"},
-  {name:"ファミリーマート 八代大手町店", genre:"super", addr:"熊本県八代市大手町2-1-1"},
-  {name:"ローソン 八代臨港線店", genre:"super", addr:"熊本県八代市田中西町15-1"},
-  {name:"セブン-イレブン 熊本氷川町店", genre:"super", addr:"熊本県八代郡氷川町鹿野1089-1"},
-  {name:"セブン-イレブン 嘉島町上島店", genre:"super", addr:"熊本県上益城郡嘉島町上島2033"},
-
   // ===== スーパー・商業施設 =====
   {name:"鮮ど市場 松橋店", genre:"super", addr:"熊本県宇城市松橋町松橋793"},
   {name:"ロッキー 松橋店", genre:"super", addr:"熊本県宇城市松橋町曲野2300"},
@@ -82,6 +69,60 @@ const LANDMARKS = [
   {name:"イオンモール熊本（イオンスタイル熊本）", genre:"super", addr:"熊本県上益城郡嘉島町上島長池2232"},
   {name:"HIヒロセ スーパーコンボ嘉島店", genre:"super", addr:"熊本県上益城郡嘉島町鯰1792-1"},
   {name:"鮮ど市場 益城店", genre:"super", addr:"熊本県上益城郡益城町宮園704"},
+
+  // ===== コンビニ（提供リストより一括登録） =====
+  {name:"セブン-イレブン 宇城御領店", genre:"super", addr:"熊本県宇城市不知火町御領390", tel:"0964-32-3181", hours:"24時間営業"},
+  {name:"セブン-イレブン 宇城豊野町山崎店", genre:"super", addr:"熊本県宇城市豊野町山崎259-1", tel:"0964-45-2507", hours:"24時間営業"},
+  {name:"セブン-イレブン 宇城松橋曲野店", genre:"super", addr:"熊本県宇城市松橋町曲野曲野823-1", tel:"0964-32-7707", hours:"24時間営業"},
+  {name:"セブン-イレブン 宇城南豊崎店", genre:"super", addr:"熊本県宇城市松橋町南豊崎572-1", tel:"0964-32-2287", hours:"24時間営業"},
+  {name:"セブン-イレブン 宇城氷川インター入口店", genre:"super", addr:"熊本県宇城市小川町南小川207", tel:"0964-43-3373", hours:"24時間営業"},
+  {name:"セブン-イレブン 宇城松橋町久具店", genre:"super", addr:"熊本県宇城市松橋町久具313-1", tel:"0964-33-0711", hours:"24時間営業"},
+  {name:"セブン-イレブン 熊本三角町店", genre:"super", addr:"熊本県宇城市三角町波多292-1", tel:"0964-52-3377", hours:"24時間営業"},
+  {name:"セブン-イレブン 宇城不知火町長崎店", genre:"super", addr:"熊本県宇城市不知火町長崎520-1", tel:"0964-32-8507", hours:"24時間営業"},
+  {name:"ローソン 宇城不知火店", genre:"super", addr:"熊本県宇城市不知火町高良字西原2300-1", tel:"0964-33-5133", hours:"24時間営業"},
+  {name:"ローソン 松橋古保山店", genre:"super", addr:"熊本県宇城市松橋町古保山字野田2505-1", tel:"0964-33-8822", hours:"24時間営業"},
+  {name:"ローソン 松橋きらら店", genre:"super", addr:"熊本県宇城市松橋町久具字松山312-3", tel:"0964-33-0220", hours:"24時間営業"},
+  {name:"ローソン 宇城松橋町萩尾店", genre:"super", addr:"熊本県宇城市松橋町萩尾853-1", tel:"0964-34-3101", hours:"24時間営業"},
+  {name:"ファミリーマート 宇城松橋曲野店", genre:"super", addr:"熊本県宇城市松橋町曲野2181-1", tel:"0964-34-3530", hours:"24時間営業"},
+  {name:"ファミリーマート 宇城松橋両田店", genre:"super", addr:"熊本県宇城市松橋町両田11-1", tel:"0964-34-0301", hours:"24時間営業"},
+  {name:"ファミリーマート 宇城小川店", genre:"super", addr:"熊本県宇城市小川町江頭77-1", tel:"0964-43-6550", hours:"24時間営業"},
+  {name:"ファミリーマート 三角波多店", genre:"super", addr:"熊本県宇城市三角町波多13-3", tel:"0964-53-2070", hours:"24時間営業"},
+  {name:"セブン-イレブン 宇土松山町店", genre:"super", addr:"熊本県宇土市松山町2024-1", tel:"0964-22-3778", hours:"24時間営業"},
+  {name:"セブン-イレブン 宇土駅前店", genre:"super", addr:"熊本県宇土市城之浦町56", tel:"0964-22-8287", hours:"24時間営業"},
+  {name:"セブン-イレブン 宇土走潟町店", genre:"super", addr:"熊本県宇土市走潟町881-1", tel:"0964-22-2566", hours:"24時間営業"},
+  {name:"セブン-イレブン 宇土住吉町店", genre:"super", addr:"熊本県宇土市住吉町2250-1", tel:"0964-27-8550", hours:"24時間営業"},
+  {name:"セブン-イレブン 宇土本町４丁目店", genre:"super", addr:"熊本県宇土市本町4丁目42", tel:"0964-22-2363", hours:"24時間営業"},
+  {name:"ローソン 宇土境町店", genre:"super", addr:"熊本県宇土市境町字石原471-1", tel:"0964-22-6800", hours:"24時間営業"},
+  {name:"ローソン 宇土松原町店", genre:"super", addr:"熊本県宇土市松原町字平原35-1", tel:"0964-23-0808", hours:"24時間営業"},
+  {name:"ローソン 宇土新松原町店", genre:"super", addr:"熊本県宇土市新松原町字石原138-1", tel:"0964-23-2811", hours:"24時間営業"},
+  {name:"ファミリーマート 宇土花園町店", genre:"super", addr:"熊本県宇土市花園町227-1", tel:"0964-24-3010", hours:"24時間営業"},
+  {name:"ファミリーマート 宇土松原町店", genre:"super", addr:"熊本県宇土市松原町13-1", tel:"0964-23-5355", hours:"24時間営業"},
+  {name:"ファミリーマート 宇土岩古曽店", genre:"super", addr:"熊本県宇土市岩古曽町1683-1", tel:"0964-24-3200", hours:"24時間営業"},
+  {name:"セブン-イレブン 八代上片町店", genre:"super", addr:"熊本県八代市上片町字下ノ森995-1", tel:"0965-31-5602", hours:"24時間営業"},
+  {name:"セブン-イレブン 八代鏡店", genre:"super", addr:"熊本県八代市鏡町内田266", tel:"0965-52-5502", hours:"24時間営業"},
+  {name:"セブン-イレブン 八代旭中央通り店", genre:"super", addr:"熊本県八代市黄金町8-1", tel:"0965-35-8087", hours:"24時間営業"},
+  {name:"セブン-イレブン 八代渡町店", genre:"super", addr:"熊本県八代市渡町1755", tel:"0965-35-0778", hours:"24時間営業"},
+  {name:"セブン-イレブン 八代永碇店", genre:"super", addr:"熊本県八代市永碇町1008番", tel:"0965-35-1032", hours:"24時間営業"},
+  {name:"セブン-イレブン 八代塩屋町店", genre:"super", addr:"熊本県八代市塩屋町6-3", tel:"0965-31-1577", hours:"24時間営業"},
+  {name:"セブン-イレブン 八代海士江町店", genre:"super", addr:"熊本県八代市海士江町字西原2928-1", tel:"0965-39-5807", hours:"24時間営業"},
+  {name:"セブン-イレブン 八代田中西町店", genre:"super", addr:"熊本県八代市田中西町14-1", tel:"0965-32-7511", hours:"24時間営業"},
+  {name:"セブン-イレブン 八代千丁町店", genre:"super", addr:"熊本県八代市千丁町新牟田1437-1", tel:"0965-46-1330", hours:"24時間営業"},
+  {name:"ローソン 八代総合病院前店", genre:"super", addr:"熊本県八代市松江城町2-25", tel:"0965-33-0570", hours:"24時間営業"},
+  {name:"ローソン 八代横手町店", genre:"super", addr:"熊本県八代市横手町字上ノ段1661-1", tel:"0965-39-5115", hours:"24時間営業"},
+  {name:"ローソン 八代臨港線店", genre:"super", addr:"熊本県八代市古城町字浜添2590-1", tel:"0965-31-1370", hours:"24時間営業"},
+  {name:"ローソン 八代通町店", genre:"super", addr:"熊本県八代市通町7-18", tel:"0965-33-2180", hours:"24時間営業"},
+  {name:"ローソン 八代坂本町店", genre:"super", addr:"熊本県八代市坂本町坂本4102-1", tel:"0965-45-2120", hours:"24時間営業"},
+  {name:"ファミリーマート 八代本町三丁目店", genre:"super", addr:"熊本県八代市本町3丁目4-23", tel:"0965-30-0118", hours:"24時間営業"},
+  {name:"ファミリーマート 八代夕葉町店", genre:"super", addr:"熊本県八代市夕葉町4-1", tel:"0965-31-6101", hours:"24時間営業"},
+  {name:"ファミリーマート 八代竹原町店", genre:"super", addr:"熊本県八代市竹原町1990-1", tel:"0965-39-3170", hours:"24時間営業"},
+  {name:"ファミリーマート 八代大村町店", genre:"super", addr:"熊本県八代市大村町708-1", tel:"0965-30-0150", hours:"24時間営業"},
+  {name:"ファミリーマート 八代高小島店", genre:"super", addr:"熊本県八代市高小島町1921-1", tel:"0965-30-0105", hours:"24時間営業"},
+  {name:"ヤマザキショップ 坂本いずみ店", genre:"super", addr:"熊本県八代市坂本町荒瀬5240", tel:"0965-45-2015", hours:"7:00～19:00"},
+  {name:"セブン-イレブン 氷川鹿島店", genre:"super", addr:"熊本県八代郡氷川町鹿島1541-6", tel:"0965-52-8837", hours:"24時間営業"},
+  {name:"セブン-イレブン 氷川宮原店", genre:"super", addr:"熊本県八代郡氷川町宮原556-1", tel:"0965-62-1131", hours:"24時間営業"},
+  {name:"ローソン 氷川宮原店", genre:"super", addr:"熊本県八代郡氷川町宮原字小路口801-1", tel:"0965-62-1322", hours:"24時間営業"},
+  {name:"ファミリーマート 氷川宮原店", genre:"super", addr:"熊本県八代郡氷川町宮原栄30-1", tel:"0965-62-8110", hours:"24時間営業"},
+  {name:"ヤマザキショップ 伊東商店", genre:"super", addr:"熊本県八代郡氷川町河原68", tel:"0965-62-2302", hours:"9:30～22:30"},
 
   // ===== ガソリンスタンド =====
   {name:"ENEOS Dr.Drive セルフ松橋店", genre:"gas", addr:"熊本県宇城市松橋町曲野1160-1"},
@@ -255,19 +296,23 @@ for(const lm of LANDMARKS){
 
   if(!pos){ console.log(`× 座標が取れませんでした: ${lm.name}`); failed++; continue; }
 
-  // 重複チェック：①既存データと近接かつ名前が似ている ②今回追加分と近接かつ名前が似ている
+  // 重複チェック：①既存データと近接かつ名前が似ている ②今回追加分の同名 or 近接同名
   const dupEx = existing.find(s => distM(s, pos) < 200 && sameish(s.name, lm.name));
-  const dupNew = spots.find(s => distM(s, pos) < 60 && sameish(s.name, lm.name));
+  const dupNew = spots.find(s => norm(s.name) === norm(lm.name)
+                              || (distM(s, pos) < 60 && sameish(s.name, lm.name)));
   if(dupEx || dupNew){
     console.log(`− 重複スキップ: ${lm.name}（既存: ${(dupEx||dupNew).name}）`);
     skipped++; continue;
   }
 
-  spots.push({
+  const rec = {
     id: "manual-" + norm(lm.name).slice(0, 32),
     name: lm.name, genre: lm.genre,
     lat: Math.round(pos.lat * 1e5) / 1e5, lng: Math.round(pos.lng * 1e5) / 1e5
-  });
+  };
+  if(lm.tel) rec.tel = lm.tel;
+  if(lm.hours) rec.hours = lm.hours;
+  spots.push(rec);
   console.log(`○ ${lm.name} [${pos.src}] (${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)})`);
 }
 
