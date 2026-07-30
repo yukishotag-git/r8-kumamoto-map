@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 拠点：誰でも閲覧可・追加のみ可（編集/削除は不可）
+    match /spots/{id} {
+      allow read: if true;
+      allow create: if
+        request.resource.data.keys().hasOnly(['name','genre','lat','lng','createdAt','osmId'])
+        && (!('osmId' in request.resource.data) || (request.resource.data.osmId is string && request.resource.data.osmId.size() <= 60))
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 50
+        && request.resource.data.genre in ['gas','super','bousai','water','medical','other']
+        && request.resource.data.lat is number
+        && request.resource.data.lng is number
+        && request.resource.data.lat > 24 && request.resource.data.lat < 46
+        && request.resource.data.lng > 122 && request.resource.data.lng < 154;
+      allow update, delete: if false;
+    }
+
+    // 投稿：誰でも閲覧可・追加のみ可（編集/削除は不可）
+    match /posts/{id} {
+      allow read: if true;
+      allow create: if
+        request.resource.data.keys().hasOnly(['spotId','text','nickname','createdAt'])
+        && request.resource.data.spotId is string
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 300
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() <= 20;
+      allow update, delete: if false;
+    }
+  }
+}

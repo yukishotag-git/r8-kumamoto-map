@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>令和8年熊本地震 生活情報マップ</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root{
+    --c-main:#2c6e49; --c-accent:#d94f30; --c-bg:#f5f4f0; --c-card:#ffffff;
+    --c-text:#333; --c-sub:#777; --c-border:#e0ddd5;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{font-family:"Hiragino Sans","Yu Gothic","Meiryo",sans-serif; color:var(--c-text); background:var(--c-bg); display:flex; flex-direction:column;}
+  header{background:var(--c-main); color:#fff; padding:10px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+  header h1{font-size:1.05rem; font-weight:700;}
+  header .note{font-size:.7rem; opacity:.85;}
+  #demoBanner{display:none; background:#e67e22; color:#fff; font-size:.75rem; padding:5px 12px; text-align:center;}
+  #layout{flex:1; display:flex; min-height:0;}
+  #map{flex:1; min-height:0;}
+  #sidebar{width:400px; max-width:45%; background:var(--c-bg); border-left:1px solid var(--c-border); display:flex; flex-direction:column; min-height:0;}
+  #controls{padding:10px; border-bottom:1px solid var(--c-border); background:var(--c-card);}
+  #searchBox{width:100%; padding:9px 12px; font-size:16px; border:1px solid var(--c-border); border-radius:8px;}
+  #genreChips{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;}
+  .chip{border:1px solid var(--c-border); background:#fff; border-radius:16px; padding:4px 10px; font-size:.8rem; cursor:pointer; user-select:none;}
+  .chip.active{background:var(--c-main); color:#fff; border-color:var(--c-main);}
+  #addSpotBtn{margin-top:8px; width:100%; padding:9px; background:var(--c-accent); color:#fff; border:none; border-radius:8px; font-size:.9rem; cursor:pointer;}
+  #addSpotBtn.arming{background:#a33;}
+  #panels{flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:10px;}
+  .card{background:var(--c-card); border:1px solid var(--c-border); border-radius:10px; padding:12px;}
+  .card h2{font-size:.95rem; margin-bottom:8px; display:flex; align-items:center; gap:6px;}
+  #detailCard{display:none; border-left:4px solid var(--c-main);}
+  #detailCard .genre{font-size:.75rem; color:var(--c-sub);}
+  #detailCard .close{float:right; cursor:pointer; color:var(--c-sub); font-size:1.1rem; line-height:1;}
+  .post{border-top:1px solid var(--c-border); padding:8px 0; font-size:.87rem;}
+  .post:first-of-type{border-top:none;}
+  .post .meta{font-size:.72rem; color:var(--c-sub); margin-top:3px;}
+  .post .spotname{color:var(--c-main); font-weight:600; cursor:pointer; text-decoration:underline;}
+  textarea, input[type=text], input[type=search], select{width:100%; padding:8px; font-size:16px; border:1px solid var(--c-border); border-radius:8px; background:#fff;}
+  textarea{resize:vertical; min-height:60px;}
+  .formRow{margin-top:8px;}
+  .btn{padding:8px 14px; background:var(--c-main); color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:.88rem;}
+  .btn:disabled{opacity:.5; cursor:default;}
+  .btn.gray{background:#999;}
+  .empty{color:var(--c-sub); font-size:.85rem; padding:8px 0;}
+  #osmStatus{display:none; position:absolute; bottom:10px; left:10px; z-index:1000; background:rgba(0,0,0,.65); color:#fff; padding:4px 10px; border-radius:6px; font-size:.75rem;}
+  #hint{display:none; position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:1000; background:rgba(217,79,48,.95); color:#fff; padding:8px 14px; border-radius:8px; font-size:.85rem; box-shadow:0 2px 8px rgba(0,0,0,.3);}
+  #modalBg{display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:2000; align-items:center; justify-content:center; padding:16px;}
+  #modal{background:#fff; border-radius:12px; padding:16px; width:100%; max-width:420px;}
+  #modal h2{font-size:1rem; margin-bottom:4px;}
+  #modal .actions{display:flex; gap:8px; justify-content:flex-end; margin-top:12px;}
+  .spotIcon{display:flex; align-items:center; justify-content:center; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.4); font-size:15px; background:#fff;}
+  footer{background:#3a3a3a; color:#ccc; font-size:.68rem; padding:6px 12px; line-height:1.5;}
+  @media (max-width:768px){
+    #layout{flex-direction:column;}
+    #map{height:48vh; flex:none;}
+    #sidebar{width:100%; max-width:100%; flex:1; border-left:none; border-top:1px solid var(--c-border);}
+    header h1{font-size:.95rem;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>令和8年熊本地震 生活情報マップ</h1>
+  <span class="note">ログイン不要・みんなで情報を共有するマップです</span>
+</header>
+<div id="demoBanner">⚠ デモモード：Firebase未設定のため、投稿はこの画面内のみで保存されません。</div>
+
+<div id="layout">
+  <div style="position:relative; flex:1; display:flex; min-width:0;">
+    <div id="map"></div>
+    <div id="hint">地図上の追加したい場所をタップしてください（もう一度ボタンを押すと解除）</div>
+    <div id="osmStatus"></div>
+  </div>
+  <div id="sidebar">
+    <div id="controls">
+      <input id="searchBox" type="search" placeholder="フリーワード検索（例：おにぎり おむつ ミルク）">
+      <div id="genreChips"></div>
+      <button id="addSpotBtn">＋ 新しい拠点を地図に追加</button>
+      <div style="font-size:.7rem; color:var(--c-sub); margin-top:6px;">薄い印は地図データ（OpenStreetMap）由来の施設です。タップして投稿すると共有拠点になります。</div>
+    </div>
+    <div id="panels">
+      <div id="detailCard" class="card">
+        <span class="close" id="detailClose">✕</span>
+        <h2 id="detailTitle"></h2>
+        <div class="genre" id="detailGenre"></div>
+        <div class="formRow">
+          <textarea id="postText" maxlength="300" placeholder="いまの状況を投稿（例：営業中、行列30分、おにぎりあり）"></textarea>
+        </div>
+        <div class="formRow" style="display:flex; gap:8px;">
+          <input id="postName" type="text" maxlength="20" placeholder="ニックネーム（任意）" style="flex:1;">
+          <button class="btn" id="postSubmit">投稿</button>
+        </div>
+        <div id="detailPosts" style="margin-top:10px;"></div>
+      </div>
+      <div class="card">
+        <h2>🕒 最新の投稿</h2>
+        <div id="feed"><div class="empty">読み込み中…</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  ※投稿は利用者の善意による情報であり、正確性は保証されません。避難・給水・支援物資などの公式情報は、熊本県・各市町村の公式サイトや防災無線を必ずご確認ください。緊急時は119/110へ。
+</footer>
+
+<div id="modalBg">
+  <div id="modal">
+    <h2>新しい拠点を追加</h2>
+    <div class="formRow"><input id="newSpotName" type="text" maxlength="50" placeholder="拠点名（例：〇〇スーパー 宇城店）"></div>
+    <div class="formRow"><select id="newSpotGenre"></select></div>
+    <div class="formRow"><textarea id="newSpotPost" maxlength="300" placeholder="最初の投稿（任意。例：営業再開、水あり）"></textarea></div>
+    <div class="actions">
+      <button class="btn gray" id="modalCancel">キャンセル</button>
+      <button class="btn" id="modalOk">追加する</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script type="module">
+/* =====================================================
+   Firebase設定：Firebaseコンソールの「ウェブアプリ」で
+   表示される firebaseConfig をここに貼り付けてください。
+   未設定（PASTE_HEREのまま）の場合はデモモードで動作します。
+   ===================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCfcSnE9-MwiGfLijIevVUqbfxGcfFcHdo",
+  authDomain: "r8-kumamoto-map.firebaseapp.com",
+  projectId: "r8-kumamoto-map",
+  storageBucket: "r8-kumamoto-map.firebasestorage.app",
+  messagingSenderId: "372510038111",
+  appId: "1:372510038111:web:66dbce59527f052c8be3ea"
+};
+
+/* ================= ジャンル定義 ================= */
+const GENRES = {
+  gas:    {label:"ガソリンスタンド", emoji:"⛽", color:"#e67e22"},
+  super:  {label:"スーパー・食料",   emoji:"🛒", color:"#2980b9"},
+  bousai: {label:"防災拠点・避難所", emoji:"🏫", color:"#27ae60"},
+  water:  {label:"給水所",           emoji:"🚰", color:"#16a085"},
+  medical:{label:"医療機関",         emoji:"🏥", color:"#c0392b"},
+  other:  {label:"その他",           emoji:"📍", color:"#7f8c8d"}
+};
+const MIN = 60*1000, HOUR = 60*MIN;
+
+/* ================= 状態（表示用データはここに集約） ================= */
+let spots = [];            // [{id, name, genre, lat, lng}]
+let postsMap = {};         // {spotId: [{text, name, time}]}  time=ms
+let filterGenre = "all";
+let searchText = "";
+let selectedId = null;
+let addMode = false;
+let db = null;             // nullならデモモード
+let osmSpots = [];         // OpenStreetMap由来の施設（未投稿・薄表示）
+
+// Firestore登録済み拠点＋（未登録の）OSM施設を合わせた表示用リスト
+function allSpots(){
+  const claimed = new Set(spots.map(s=>s.osmId).filter(Boolean));
+  return spots.concat(osmSpots.filter(o=>!claimed.has(o.id)));
+}
+
+/* ================= デモ用サンプルデータ ================= */
+function loadDemoData(){
+  const now = Date.now();
+  spots = [
+    {id:"d1", name:"宇城市役所前 給水所", genre:"water", lat:32.6490, lng:130.6860},
+    {id:"d2", name:"サンプルSS 松橋", genre:"gas", lat:32.6420, lng:130.6790},
+    {id:"d3", name:"サンプルスーパー 宇城店", genre:"super", lat:32.6555, lng:130.6920},
+    {id:"d4", name:"市立サンプル小学校（避難所）", genre:"bousai", lat:32.6600, lng:130.6700},
+    {id:"d5", name:"サンプル病院", genre:"medical", lat:32.6380, lng:130.7000},
+    {id:"d6", name:"サンプルドラッグ 小川店", genre:"super", lat:32.5820, lng:130.7150}
+  ];
+  postsMap = {
+    d1:[{text:"給水車到着。ポリタンク持参推奨。17時まで。", name:"", time:now-70*MIN}],
+    d2:[{text:"レギュラーのみ給油可。1台20Lまで。行列約40分。", name:"通りすがり", time:now-35*MIN}],
+    d3:[{text:"おにぎり・パン入荷しました！1人5個まで。", name:"店員", time:now-20*MIN},
+        {text:"水は売り切れ。カップ麺は残りわずか。", name:"", time:now-2*HOUR}],
+    d4:[{text:"毛布・簡易トイレあり。炊き出し18時からカレー予定。", name:"運営", time:now-50*MIN}],
+    d5:[{text:"外来は救急のみ受付。透析は要電話確認。", name:"", time:now-4*HOUR}],
+    d6:[{text:"おむつ（Mサイズ）とミルク入荷。粉ミルクは1人1缶。", name:"", time:now-90*MIN}]
+  };
+}
+
+/* ================= 地図 ================= */
+// デフォルト表示：熊本県宇城市役所を中心に、半径約10kmが見えるズーム
+const map = L.map("map").setView([32.6474, 130.6842], 12);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  maxZoom:19
+}).addTo(map);
+const markerLayer = L.layerGroup().addTo(map);
+
+function makeIcon(genre, selected){
+  const g = GENRES[genre] || GENRES.other;
+  const s = selected ? 38 : 30;
+  return L.divIcon({
+    className:"",
+    html:`<div class="spotIcon" style="width:${s}px;height:${s}px;background:${g.color};${selected?"outline:3px solid #ffd54f;":""}">${g.emoji}</div>`,
+    iconSize:[s,s], iconAnchor:[s/2,s/2]
+  });
+}
+
+/* ================= 検索・絞り込み ================= */
+function spotPosts(id){ return postsMap[id] || []; }
+function matches(spot){
+  if(filterGenre !== "all" && spot.genre !== filterGenre) return false;
+  const q = searchText.trim().toLowerCase();
+  if(!q) return true;
+  const words = q.split(/[\s　]+/).filter(Boolean);
+  const g = GENRES[spot.genre] || GENRES.other;
+  const hay = [spot.name, g.label, ...spotPosts(spot.id).map(p=>p.text+" "+(p.name||""))].join(" ").toLowerCase();
+  return words.every(w => hay.includes(w));
+}
+function visibleSpots(){ return allSpots().filter(matches); }
+
+/* ================= 描画 ================= */
+function esc(s){ const d=document.createElement("div"); d.textContent=s==null?"":String(s); return d.innerHTML; }
+function rel(t){
+  const d = Date.now()-t;
+  if(d < MIN) return "たった今";
+  if(d < HOUR) return Math.floor(d/MIN)+"分前";
+  if(d < 24*HOUR) return Math.floor(d/HOUR)+"時間前";
+  return Math.floor(d/(24*HOUR))+"日前";
+}
+
+function renderMarkers(){
+  markerLayer.clearLayers();
+  visibleSpots().forEach(s=>{
+    const m = L.marker([s.lat, s.lng],
+      {icon:makeIcon(s.genre, s.id===selectedId), opacity: s.osm ? 0.55 : 1});
+    m.on("click", ()=>openSpot(s.id));
+    m.bindTooltip(esc(s.name), {direction:"top", offset:[0,-16]});
+    m.addTo(markerLayer);
+  });
+}
+
+function renderChips(){
+  const el = document.getElementById("genreChips");
+  el.innerHTML = "";
+  const mk = (key,label)=>{
+    const c = document.createElement("span");
+    c.className = "chip" + (filterGenre===key ? " active":"");
+    c.textContent = label;
+    c.onclick = ()=>{ filterGenre = (key==="all"||filterGenre===key) ? (key==="all"?"all":(filterGenre===key?"all":key)) : key; refresh(); };
+    el.appendChild(c);
+  };
+  mk("all","すべて");
+  Object.entries(GENRES).forEach(([key,g])=>mk(key, g.emoji+" "+g.label));
+}
+
+function renderFeed(){
+  const el = document.getElementById("feed");
+  const items = [];
+  visibleSpots().forEach(s=>spotPosts(s.id).forEach(p=>items.push({s,p})));
+  items.sort((a,b)=>b.p.time - a.p.time);
+  if(!items.length){ el.innerHTML = '<div class="empty">該当する投稿がありません。</div>'; return; }
+  el.innerHTML = items.slice(0,50).map(({s,p})=>{
+    const g = GENRES[s.genre] || GENRES.other;
+    return `<div class="post">
+      <div>${esc(p.text)}</div>
+      <div class="meta">${g.emoji} <span class="spotname" data-id="${esc(s.id)}">${esc(s.name)}</span>
+        ｜ ${esc(p.name)||"匿名"} ｜ ${rel(p.time)}</div>
+    </div>`;
+  }).join("");
+  el.querySelectorAll(".spotname").forEach(a=>{ a.onclick = ()=>openSpot(a.dataset.id); });
+}
+
+function renderDetail(){
+  const card = document.getElementById("detailCard");
+  const s = allSpots().find(x=>x.id===selectedId);
+  if(!s){ card.style.display="none"; return; }
+  const g = GENRES[s.genre] || GENRES.other;
+  card.style.display = "block";
+  document.getElementById("detailTitle").textContent = g.emoji + " " + s.name;
+  document.getElementById("detailGenre").textContent =
+    g.label + (s.osm ? "（地図データ由来。最初の投稿で共有拠点になります）" : "");
+  const list = document.getElementById("detailPosts");
+  const posts = [...spotPosts(s.id)].sort((a,b)=>b.time-a.time);
+  if(!posts.length){ list.innerHTML = '<div class="empty">まだ投稿がありません。最初の情報を投稿してください。</div>'; }
+  else{
+    list.innerHTML = posts.map(p=>
+      `<div class="post"><div>${esc(p.text)}</div>
+       <div class="meta">${esc(p.name)||"匿名"} ｜ ${rel(p.time)}</div></div>`).join("");
+  }
+}
+
+function refresh(){ renderChips(); renderMarkers(); renderFeed(); renderDetail(); }
+
+function openSpot(id){
+  selectedId = id;
+  const s = allSpots().find(x=>x.id===id);
+  if(s) map.panTo([s.lat, s.lng]);
+  refresh();
+  document.getElementById("panels").scrollTop = 0;
+}
+
+/* ================= データ書き込み（Firestore or デモ） ================= */
+let fs = null; // firestore関数群
+
+async function addPost(spotId, text, name){
+  if(db){
+    await fs.addDoc(fs.collection(db,"posts"),
+      {spotId, text, nickname:name, createdAt:fs.serverTimestamp()});
+  }else{
+    (postsMap[spotId] = postsMap[spotId] || []).push({text, name, time:Date.now()});
+    refresh();
+  }
+}
+
+async function addSpot(name, genre, lat, lng, firstPost, osmId){
+  let id;
+  if(db){
+    const data = {name, genre, lat, lng, createdAt:fs.serverTimestamp()};
+    if(osmId) data.osmId = osmId;
+    const ref = await fs.addDoc(fs.collection(db,"spots"), data);
+    id = ref.id;
+    if(firstPost) await addPost(id, firstPost, "");
+  }else{
+    id = "local-" + Date.now();
+    spots.push({id, name, genre, lat, lng, osmId:osmId||null});
+    if(firstPost) postsMap[id] = [{text:firstPost, name:"", time:Date.now()}];
+    refresh();
+  }
+  return id;
+}
+
+/* ================= UIイベント ================= */
+document.getElementById("postSubmit").onclick = async (e)=>{
+  const btn = e.target;
+  const text = document.getElementById("postText").value.trim();
+  const spot = allSpots().find(x=>x.id===selectedId);
+  if(!spot || !text) return;
+  btn.disabled = true;
+  try{
+    if(spot.osm){
+      // OSM由来の施設への最初の投稿 → 共有拠点として登録
+      const newId = await addSpot(spot.name, spot.genre, spot.lat, spot.lng, text, spot.id);
+      selectedId = newId;
+    }else{
+      await addPost(spot.id, text, document.getElementById("postName").value.trim());
+    }
+    document.getElementById("postText").value = "";
+  }catch(err){ alert("投稿に失敗しました: " + err.message); }
+  btn.disabled = false;
+};
+document.getElementById("detailClose").onclick = ()=>{ selectedId=null; refresh(); };
+
+const addBtn = document.getElementById("addSpotBtn");
+const hint = document.getElementById("hint");
+let pendingLatLng = null;
+
+function exitAddMode(){
+  addMode = false;
+  addBtn.classList.remove("arming");
+  addBtn.textContent = "＋ 新しい拠点を地図に追加";
+  hint.style.display = "none";
+}
+addBtn.onclick = ()=>{
+  addMode = !addMode;
+  if(addMode){
+    addBtn.classList.add("arming");
+    addBtn.textContent = "拠点追加をやめる";
+    hint.style.display = "block";
+  }else exitAddMode();
+};
+map.on("click", e=>{
+  if(!addMode) return;
+  pendingLatLng = e.latlng;
+  const sel = document.getElementById("newSpotGenre");
+  sel.innerHTML = Object.entries(GENRES).map(([k,g])=>`<option value="${k}">${g.emoji} ${g.label}</option>`).join("");
+  document.getElementById("newSpotName").value = "";
+  document.getElementById("newSpotPost").value = "";
+  document.getElementById("modalBg").style.display = "flex";
+});
+document.getElementById("modalCancel").onclick = ()=>{ document.getElementById("modalBg").style.display="none"; };
+document.getElementById("modalOk").onclick = async (e)=>{
+  const btn = e.target;
+  const name = document.getElementById("newSpotName").value.trim();
+  if(!name || !pendingLatLng) return;
+  btn.disabled = true;
+  try{
+    const id = await addSpot(name, document.getElementById("newSpotGenre").value,
+      pendingLatLng.lat, pendingLatLng.lng,
+      document.getElementById("newSpotPost").value.trim());
+    document.getElementById("modalBg").style.display = "none";
+    exitAddMode();
+    openSpot(id);
+  }catch(err){ alert("追加に失敗しました: " + err.message); }
+  btn.disabled = false;
+};
+document.getElementById("searchBox").addEventListener("input", e=>{
+  searchText = e.target.value; refresh();
+});
+
+/* ================= OSM施設の自動取得（Overpass API） ================= */
+const OVERPASS = "https://overpass-api.de/api/interpreter";
+let osmTimer = null;
+
+function setOsmStatus(msg){
+  const el = document.getElementById("osmStatus");
+  el.textContent = msg;
+  el.style.display = msg ? "block" : "none";
+}
+function genreFromTags(t){
+  if(t.amenity === "fuel") return "gas";
+  if(t.shop === "supermarket" || t.shop === "convenience" || t.shop === "chemist") return "super";
+  if(t.amenity === "hospital" || t.amenity === "clinic" || t.amenity === "pharmacy" || t.amenity === "doctors") return "medical";
+  if(t.amenity === "drinking_water") return "water";
+  return "other";
+}
+async function fetchOsmSpots(){
+  if(map.getZoom() < 12){ setOsmStatus("拡大すると周辺の施設が表示されます"); return; }
+  const b = map.getBounds();
+  const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].map(x=>x.toFixed(4)).join(",");
+  const q = `[out:json][timeout:25];(
+    nwr["amenity"~"^(fuel|hospital|clinic|pharmacy)$"](${bbox});
+    nwr["shop"~"^(supermarket|convenience|chemist)$"](${bbox});
+  );out center 300;`;
+  try{
+    setOsmStatus("周辺の施設を読み込み中…");
+    const res = await fetch(OVERPASS, {
+      method:"POST",
+      headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body:"data=" + encodeURIComponent(q)
+    });
+    if(!res.ok) throw new Error(res.status);
+    const json = await res.json();
+    osmSpots = (json.elements || []).map(el=>{
+      const lat = el.lat !== undefined ? el.lat : (el.center && el.center.lat);
+      const lng = el.lon !== undefined ? el.lon : (el.center && el.center.lon);
+      const t = el.tags || {};
+      const genre = genreFromTags(t);
+      const name = t.name || t.brand || (GENRES[genre].label + "（名称不明）");
+      return {id:"osm-" + el.type + "-" + el.id, name, genre, lat, lng, osm:true};
+    }).filter(s=>typeof s.lat === "number" && typeof s.lng === "number");
+    setOsmStatus("");
+    refresh();
+  }catch(e){
+    console.error("Overpass取得エラー", e);
+    setOsmStatus("施設情報の取得に失敗しました（時間をおいて地図を動かすと再取得します）");
+  }
+}
+map.on("moveend", ()=>{ clearTimeout(osmTimer); osmTimer = setTimeout(fetchOsmSpots, 800); });
+fetchOsmSpots();
+
+/* ================= 起動 ================= */
+async function boot(){
+  if(FIREBASE_CONFIG.apiKey === "PASTE_HERE"){
+    document.getElementById("demoBanner").style.display = "block";
+    loadDemoData();
+    refresh();
+    return;
+  }
+  const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+  const fsMod = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+  fs = fsMod;
+  const app = initializeApp(FIREBASE_CONFIG);
+  db = fsMod.getFirestore(app);
+
+  // 拠点：リアルタイム購読
+  fsMod.onSnapshot(fsMod.query(fsMod.collection(db,"spots"), fsMod.limit(1000)), snap=>{
+    spots = snap.docs.map(d=>{
+      const v = d.data();
+      return {id:d.id, name:v.name, genre:v.genre, lat:v.lat, lng:v.lng, osmId:v.osmId || null};
+    }).filter(s=>typeof s.lat==="number" && typeof s.lng==="number");
+    refresh();
+  }, err=>console.error("spots購読エラー", err));
+
+  // 投稿：新しい順に最大1000件をリアルタイム購読
+  fsMod.onSnapshot(
+    fsMod.query(fsMod.collection(db,"posts"), fsMod.orderBy("createdAt","desc"), fsMod.limit(1000)),
+    snap=>{
+      postsMap = {};
+      snap.docs.forEach(d=>{
+        const v = d.data();
+        const t = v.createdAt && v.createdAt.toMillis ? v.createdAt.toMillis() : Date.now();
+        (postsMap[v.spotId] = postsMap[v.spotId] || []).push({text:v.text, name:v.nickname||"", time:t});
+      });
+      refresh();
+    }, err=>console.error("posts購読エラー", err));
+}
+boot();
+</script>
+</body>
+</html>
