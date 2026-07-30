@@ -108,6 +108,10 @@
   #liveState.stale{color:#e8a33d;}
   .spNote{display:none;}
   .locBtn{font-size:17px; line-height:30px; width:30px; height:30px; text-align:center; display:block; text-decoration:none; background:#fff;}
+  .tile-gray{filter:grayscale(100%) contrast(1.05);}
+  .tile-road{filter:grayscale(100%) brightness(1.12) contrast(1.5);}
+  .tile-dark{filter:invert(100%) hue-rotate(180deg) brightness(.92) contrast(1.1);}
+  .leaflet-control-scale-line{font-size:.7rem;}
   @media (max-width:768px){
     .pcNote{display:none;}
     .spNote{display:inline;}
@@ -369,23 +373,33 @@ function loadDemoData(){
 
 /* ================= 地図 ================= */
 // デフォルト表示：八代市鏡町（鏡交差点付近）を中心に、宇城市〜八代市が収まるズーム
-const map = L.map("map").setView([32.5980, 130.6660], 11);
-// 地図のベース：施設名・ランドマークが見やすい地理院地図を既定に
-const baseGSI = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png", {
-  attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル</a>',
-  maxZoom:18
-});
-const baseGSIphoto = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg", {
-  attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル（写真）</a>',
-  maxZoom:18
-});
-const baseOSM = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  maxZoom:19
-});
-baseGSI.addTo(map);
-L.control.layers({"地理院地図（施設名が見やすい）": baseGSI, "OpenStreetMap": baseOSM, "航空写真": baseGSIphoto},
-  null, {position:"topright", collapsed:true}).addTo(map);
+const DEFAULT_CENTER = [32.5980, 130.6660];
+const DEFAULT_ZOOM = 11;
+const map = L.map("map").setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+// 地図のベース：OpenStreetMap（標準）を既定に
+const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+const baseOSM = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {attribution: OSM_ATTR, maxZoom:19});
+// 白黒（モノクロ）：CSSフィルタで彩度を落とし、マーカーを見つけやすくする
+const baseGray = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {attribution: OSM_ATTR, maxZoom:19, className:"tile-gray"});
+// 道路重視（淡色）：建物や緑地の主張を抑え、道路と文字を浮き上がらせる
+const baseRoad = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {attribution: OSM_ATTR, maxZoom:19, className:"tile-road"});
+// 高コントラスト：暗い背景に道路が浮き上がる（夜間・停電時に見やすい）
+const baseDark = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {attribution: OSM_ATTR, maxZoom:19, className:"tile-dark"});
+
+baseOSM.addTo(map);
+L.control.layers({
+  "標準（OpenStreetMap）": baseOSM,
+  "白黒（マーカー重視）": baseGray,
+  "道路を見やすく（淡色）": baseRoad,
+  "高コントラスト（暗色）": baseDark
+}, null, {position:"topright", collapsed:true}).addTo(map);
+
+// 縮尺表示（メートル法）
+L.control.scale({position:"bottomleft", imperial:false, maxWidth:160}).addTo(map);
 const markerLayer = L.layerGroup().addTo(map);
 
 function makeIcon(genre, selected){
@@ -1057,6 +1071,19 @@ locCtl.onAdd = ()=>{
   return d;
 };
 locCtl.addTo(map);
+
+// 初期表示（八代市鏡町 鏡交差点付近）へ戻るボタン
+const homeCtl = L.control({position:"bottomright"});
+homeCtl.onAdd = ()=>{
+  const d = L.DomUtil.create("div", "leaflet-bar");
+  d.innerHTML = '<a href="#" class="locBtn" title="初期表示（八代市鏡町）に戻る">🏠</a>';
+  d.onclick = e=>{
+    e.preventDefault(); e.stopPropagation();
+    map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+  };
+  return d;
+};
+homeCtl.addTo(map);
 // スマホは起動時に現在地周辺を拡大表示
 if(window.matchMedia("(max-width:768px)").matches){
   goToCurrentLocation(14, true);
