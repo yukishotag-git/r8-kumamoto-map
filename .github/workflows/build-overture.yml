@@ -1,0 +1,35 @@
+name: build-overture-spots
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/build-overture.py"
+  schedule:
+    - cron: "30 18 * * 0"   # 毎週月曜 3:30 JST
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Overture CLI を導入
+        run: pip install overturemaps
+      - name: 施設データを取得
+        run: python scripts/build-overture.py
+      - name: 変更があればコミット
+        run: |
+          git config user.name "spots-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/overture-spots.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Overture施設データ更新"
+            git pull --rebase origin main
+            git push
+          fi

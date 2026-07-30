@@ -211,7 +211,8 @@
       <button id="addSpotBtn">＋ 新しい拠点を地図に追加</button>
       <div style="font-size:.7rem; color:var(--c-sub); margin-top:6px;">
         ピンの色は<b>最新投稿の内容</b>で変わります（緑=平常・利用可／黄=支援情報あり／赤=危険・利用不可）。小さい緑は投稿がまだない施設です。
-        施設データはOpenStreetMap。公式情報は右上の「☰」メニューから。
+        施設データはOpenStreetMapとOverture Maps。公式情報は右上の「☰」メニューから。
+        載っていない施設は「＋新しい拠点を地図に追加」で登録できます。
       </div>
     </div>
     <div id="panels">
@@ -1476,6 +1477,18 @@ document.addEventListener("visibilitychange", ()=>{
 let spotIndex = [];
 const loadedFiles = {};
 
+// 近い場所に同名の施設があれば重複とみなす（別ソース間の重複排除）
+function isDuplicate(cand){
+  const nm = cand.name.replace(/[\s　（）()・\-ー−]/g, "");
+  return osmSpots.some(s=>{
+    const dLat = (s.lat - cand.lat) * 111000;
+    const dLng = (s.lng - cand.lng) * 91000;   // 熊本付近の概算
+    if(dLat*dLat + dLng*dLng > 150*150) return false;   // 150m以上離れていれば別物
+    const sn = s.name.replace(/[\s　（）()・\-ー−]/g, "");
+    return sn === nm || (nm.length >= 4 && (sn.includes(nm) || nm.includes(sn)));
+  });
+}
+
 async function loadSpotFile(file){
   if(loadedFiles[file]) return;
   loadedFiles[file] = true;
@@ -1487,6 +1500,24 @@ async function loadSpotFile(file){
     (j.spots || []).forEach(s=>{ if(!ids.has(s.id)) osmSpots.push({...s, osm:true}); });
     refresh();
   }catch(e){ console.error("スポット読み込みエラー", file, e); }
+}
+
+// Overture Maps 由来の施設（OSMに無い店舗を補完）
+async function loadOvertureSpots(){
+  try{
+    const res = await fetch("data/overture-spots.json");
+    if(!res.ok) return;
+    const j = await res.json();
+    const ids = new Set(osmSpots.map(s=>s.id));
+    let added = 0;
+    (j.spots || []).forEach(s=>{
+      if(ids.has(s.id) || isDuplicate(s)) return;
+      osmSpots.push({...s, osm:true});
+      added++;
+    });
+    console.log(`Overtureから${added}件を追加（全${(j.spots||[]).length}件中）`);
+    refresh();
+  }catch(e){ console.error("Overture読み込みエラー", e); }
 }
 function bboxIntersects(bounds, bb){
   return bounds.getSouth() < bb[2] && bounds.getNorth() > bb[0]
@@ -1500,6 +1531,7 @@ function loadVisibleRegions(){
 async function initStaticSpots(){
   loadSpotFile("core.json");           // 宇城市・八代市・氷川町は常に初期ロード
   loadSpotFile("../manual-spots.json"); // 手動追加のランドマーク（常に読み込み）
+  await loadOvertureSpots();            // OSMに無い店舗を補完
   try{
     const res = await fetch("data/spots/index.json");
     if(res.ok) spotIndex = (await res.json()).files || [];
