@@ -75,7 +75,11 @@ service cloud.firestore {
     match /help/{id} {
       allow read: if true;
       allow create: if
-        request.resource.data.keys().hasOnly(['text','nickname','category','status','createdAt','updatedAt'])
+        request.resource.data.keys().hasOnly(['text','nickname','category','status','createdAt','updatedAt','lat','lng'])
+        && (!('lat' in request.resource.data) || (request.resource.data.lat is number
+            && request.resource.data.lat > 24 && request.resource.data.lat < 46))
+        && (!('lng' in request.resource.data) || (request.resource.data.lng is number
+            && request.resource.data.lng > 122 && request.resource.data.lng < 154))
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 500
