@@ -83,6 +83,13 @@
     .pcNote{display:none;}
     .spNote{display:inline;}
     footer{font-size:.62rem; padding:4px 10px;}
+    /* ヘッダーを1行に圧縮（無駄な余白を削減） */
+    header{padding:5px 8px; gap:6px; flex-wrap:nowrap; align-items:center;}
+    header .note{display:none;}
+    header h1{font-size:.78rem; white-space:nowrap;}
+    #tabs{gap:3px; flex-wrap:nowrap;}
+    .tabBtn{padding:4px 6px; font-size:.7rem; white-space:nowrap;}
+    .tabBtn .lbl{display:none;}   /* スマホでは短縮ラベル */
     #layout{flex-direction:column;}
     #mapWrap{flex:none !important; height:48vh; height:48dvh; width:100%;}
     #sidebar{width:100%; max-width:100%; flex:1; border-left:none; border-top:1px solid var(--c-border); display:block; overflow-y:auto;}
@@ -96,11 +103,11 @@
   <h1>令和8年熊本地震 生活情報マップ</h1>
   <span class="note">ログイン不要・みんなで情報を共有するマップです</span>
   <nav id="tabs">
-    <button class="tabBtn active" id="tabMap">🗺 マップ</button>
-    <button class="tabBtn help" id="tabHelp">🆘 緊急ヘルプ</button>
-    <button class="tabBtn" id="tabFeed">📝 投稿一覧</button>
-    <button class="tabBtn" id="tabLinks">🏛 公式リンク集</button>
-    <button class="tabBtn" id="reloadBtn" title="最新の情報に更新">⟳ 更新</button>
+    <button class="tabBtn active" id="tabMap">🗺<span class="lbl"> マップ</span></button>
+    <button class="tabBtn help" id="tabHelp">🆘<span class="lbl"> 緊急</span>ヘルプ</button>
+    <button class="tabBtn" id="tabFeed">📝 投稿<span class="lbl">一覧</span></button>
+    <button class="tabBtn" id="tabLinks">🏛<span class="lbl"> 公式</span>リンク<span class="lbl">集</span></button>
+    <button class="tabBtn" id="reloadBtn" title="最新の情報に更新">⟳<span class="lbl"> 更新</span></button>
   </nav>
 </header>
 <div id="demoBanner">⚠ デモモード：Firebase未設定のため、投稿はこの画面内のみで保存されません。</div>
