@@ -68,7 +68,9 @@ async function fetchGroup(munis){
         const t = el.tags || {};
         let name = t.name || t.brand || null;
         if(name && t.branch && !name.includes(t.branch)) name += " " + t.branch;
-        return {id: "osm-" + el.type + "-" + el.id, name, genre: genreFromTags(t), lat, lng};
+        // 住所タグから地区名を控えておく（同名店舗の店名導出用）
+        const loc = t["addr:quarter"] || t["addr:neighbourhood"] || t["addr:suburb"] || null;
+        return {id: "osm-" + el.type + "-" + el.id, name, genre: genreFromTags(t), lat, lng, loc};
       }).filter(s => s.name && s.genre !== "other" && typeof s.lat === "number" && typeof s.lng === "number");
     }catch(e){ lastErr = e; console.error(`attempt ${attempt}: ${e.message}`); }
   }
@@ -77,20 +79,62 @@ async function fetchGroup(munis){
 
 const round = x => Math.round(x * 1e4) / 1e4;
 
+// Nominatim逆ジオコーディングで地区名を取得（同名店舗の店名導出用）
+async function reverseLocality(lat, lng){
+  try{
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=16&accept-language=ja`;
+    const res = await fetch(url, {headers: {"User-Agent": HEADERS["User-Agent"]}});
+    if(!res.ok) return null;
+    const a = (await res.json()).address || {};
+    return a.neighbourhood || a.quarter || a.hamlet || a.suburb || a.village || a.town || null;
+  }catch(e){ return null; }
+}
+
+// ---- 取得 ----
 await mkdir("data/spots", {recursive: true});
-const index = [];
+const groupSpots = {};
 for(const [file, munis] of Object.entries(GROUPS)){
   console.log(`fetching ${file} (${munis.join(",")})...`);
-  const spots = await fetchGroup(munis);
-  spots.forEach(s => { s.lat = round(s.lat); s.lng = round(s.lng); });
+  groupSpots[file] = await fetchGroup(munis);
+  console.log(`  -> ${groupSpots[file].length} spots`);
+  await sleep(8000); // レート制限対策
+}
+
+// ---- 同名店舗に地名から「〇〇店」を付与 ----
+const all = Object.values(groupSpots).flat();
+const counts = {};
+all.forEach(s => counts[s.name] = (counts[s.name] || 0) + 1);
+const targets = all.filter(s => counts[s.name] > 1);
+console.log(`同名重複 ${targets.length} 件の店名を導出...`);
+let nomiUsed = 0;
+for(const s of targets){
+  let loc = s.loc;
+  if(!loc && nomiUsed < 500){
+    nomiUsed++;
+    await sleep(1200); // Nominatim利用ポリシー（1req/秒以下）
+    loc = await reverseLocality(s.lat, s.lng);
+  }
+  if(loc){
+    loc = loc.replace(/^大字/, "").replace(/[0-9０-９丁目番地\-ー−]+$/, "").trim();
+    if(loc && !s.name.includes(loc)){
+      s.name = (s.genre === "super" || s.genre === "gas")
+        ? `${s.name} ${loc}店`
+        : `${s.name}（${loc}）`;
+    }
+  }
+}
+console.log(`Nominatim使用: ${nomiUsed}件`);
+
+// ---- 書き出し ----
+const index = [];
+for(const [file, spots] of Object.entries(groupSpots)){
+  spots.forEach(s => { s.lat = round(s.lat); s.lng = round(s.lng); delete s.loc; });
   const bbox = [
     Math.min(...spots.map(s => s.lat)), Math.min(...spots.map(s => s.lng)),
     Math.max(...spots.map(s => s.lat)), Math.max(...spots.map(s => s.lng))
   ];
-  await writeFile(`data/spots/${file}.json`, JSON.stringify({munis, count: spots.length, spots}));
+  await writeFile(`data/spots/${file}.json`, JSON.stringify({munis: GROUPS[file], count: spots.length, spots}));
   index.push({file: file + ".json", bbox, count: spots.length});
-  console.log(`  -> ${spots.length} spots`);
-  await sleep(8000); // レート制限対策
 }
 await writeFile("data/spots/index.json",
   JSON.stringify({generated: new Date().toISOString(), files: index}, null, 1));
