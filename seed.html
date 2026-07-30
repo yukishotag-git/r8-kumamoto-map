@@ -17,7 +17,7 @@
 </head>
 <body>
 <h1>デフォルト拠点 一括登録ツール</h1>
-<p style="font-size:.88rem;">対象範囲：熊本市（西区・南区・中央区・東区）から八代市までの帯（宇土市・宇城市・美里町・嘉島町・御船町・氷川町・八代市を含む概略範囲）。OpenStreetMapから施設を取得し、生活情報マップの共有拠点として登録します。登録済み（同じOSM ID）の施設はスキップされます。</p>
+<p style="font-size:.88rem;">対象範囲：熊本県のほぼ全域（<b>阿蘇市・阿蘇郡・玉名郡・山鹿市を除く</b>）。市町村単位で正確に指定しています。OpenStreetMapから施設を取得し、生活情報マップの共有拠点として登録します。登録済み（同じOSM ID）の施設はスキップされるため、何度実行しても重複しません。</p>
 
 <div class="box">
   <label><input type="checkbox" id="g_bousai" checked> 🏫 防災拠点候補（役場・市役所・公民館・体育館）</label>
@@ -46,13 +46,19 @@ const FIREBASE_CONFIG = {
 const app = initializeApp(FIREBASE_CONFIG);
 const db = getFirestore(app);
 
-// 概略範囲：南32.40 西130.42 北32.84 東130.95
-const BB = "32.40,130.42,32.84,130.95";
+// 対象市町村（熊本県内。阿蘇市・阿蘇郡・玉名郡・山鹿市を除外）
+const MUNIS = [
+  "熊本市","荒尾市","玉名市","菊池市","合志市","大津町","菊陽町",
+  "宇土市","宇城市","美里町","嘉島町","益城町","御船町","甲佐町","山都町",
+  "八代市","氷川町","芦北町","津奈木町","水俣市",
+  "上天草市","天草市","苓北町",
+  "人吉市","錦町","あさぎり町","多良木町","湯前町","水上村","相良村","五木村","山江村","球磨村"
+];
 const GROUPS = {
-  bousai: `nwr["amenity"~"^(townhall|community_centre)$"](${BB});nwr["leisure"="sports_centre"](${BB});`,
-  medical:`nwr["amenity"~"^(hospital|clinic)$"](${BB});`,
-  gas:    `nwr["amenity"="fuel"](${BB});`,
-  super:  `nwr["shop"~"^(supermarket|convenience|chemist)$"](${BB});`
+  bousai: `nwr["amenity"~"^(townhall|community_centre)$"](area.munis);nwr["leisure"="sports_centre"](area.munis);`,
+  medical:`nwr["amenity"~"^(hospital|clinic)$"](area.munis);`,
+  gas:    `nwr["amenity"="fuel"](area.munis);`,
+  super:  `nwr["shop"~"^(supermarket|convenience|chemist)$"](area.munis);`
 };
 function genreFromTags(t){
   if(t.amenity==="townhall" || t.amenity==="community_centre" || t.leisure==="sports_centre") return "bousai";
@@ -76,7 +82,12 @@ const ENDPOINTS = [
 
 // 選択ジャンルを1回のリクエストにまとめ、429時は待機・別サーバーで再試行
 async function fetchAll(keys){
-  const q = `[out:json][timeout:120];(${keys.map(k=>GROUPS[k]).join("")});out center 3000;`;
+  const q = `[out:json][timeout:180];
+area["name"="熊本県"]["admin_level"="4"]->.pref;
+rel["boundary"="administrative"]["admin_level"="7"]["name"~"^(${MUNIS.join("|")})$"](area.pref);
+map_to_area ->.munis;
+(${keys.map(k=>GROUPS[k]).join("")});
+out center 6000;`;
   let lastErr = null;
   for(let attempt = 0; attempt < 4; attempt++){
     const url = ENDPOINTS[attempt % ENDPOINTS.length];

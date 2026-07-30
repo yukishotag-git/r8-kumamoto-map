@@ -234,7 +234,9 @@ function rel(t){
 
 function renderMarkers(){
   markerLayer.clearLayers();
-  visibleSpots().forEach(s=>{
+  // 拠点数が多いため、地図の表示範囲（少し外側まで）のみ描画
+  const bounds = map.getBounds().pad(0.3);
+  visibleSpots().filter(s=>bounds.contains([s.lat, s.lng])).slice(0, 800).forEach(s=>{
     const m = L.marker([s.lat, s.lng],
       {icon:makeIcon(s.genre, s.id===selectedId), opacity: s.osm ? 0.55 : 1});
     m.on("click", ()=>openSpot(s.id));
@@ -449,7 +451,10 @@ async function fetchOsmSpots(){
     setOsmStatus("施設情報の取得に失敗しました（時間をおいて地図を動かすと再取得します）");
   }
 }
-map.on("moveend", ()=>{ clearTimeout(osmTimer); osmTimer = setTimeout(fetchOsmSpots, 800); });
+map.on("moveend", ()=>{
+  renderMarkers();  // 表示範囲が変わったら描画対象を更新
+  clearTimeout(osmTimer); osmTimer = setTimeout(fetchOsmSpots, 800);
+});
 fetchOsmSpots();
 
 /* ================= 起動 ================= */
@@ -467,7 +472,7 @@ async function boot(){
   db = fsMod.getFirestore(app);
 
   // 拠点：リアルタイム購読
-  fsMod.onSnapshot(fsMod.query(fsMod.collection(db,"spots"), fsMod.limit(1000)), snap=>{
+  fsMod.onSnapshot(fsMod.query(fsMod.collection(db,"spots"), fsMod.limit(5000)), snap=>{
     spots = snap.docs.map(d=>{
       const v = d.data();
       return {id:d.id, name:v.name, genre:v.genre, lat:v.lat, lng:v.lng, osmId:v.osmId || null};
