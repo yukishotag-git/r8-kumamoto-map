@@ -72,6 +72,13 @@
   #sidebar{width:400px; max-width:45%; background:var(--c-bg); border-left:1px solid var(--c-border); display:flex; flex-direction:column; min-height:0;}
   #controls{padding:10px; border-bottom:1px solid var(--c-border); background:var(--c-card);}
   #searchBox{width:100%; padding:9px 12px; font-size:16px; border:1px solid var(--c-border); border-radius:8px;}
+  #searchSuggest{display:none; position:absolute; left:0; right:0; top:100%; z-index:1200;
+                 background:#fff; border:1px solid var(--c-border); border-radius:0 0 8px 8px;
+                 box-shadow:0 4px 14px rgba(0,0,0,.18); max-height:270px; overflow-y:auto;}
+  .sgItem{padding:9px 12px; font-size:.86rem; cursor:pointer; border-top:1px solid #f0eee8;}
+  .sgItem:first-child{border-top:none;}
+  .sgItem:hover{background:#f1efe9;}
+  .sgItem .area{color:var(--c-sub); font-size:.75rem; margin-left:6px;}
   #genreChips{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;}
   .chip{border:1px solid var(--c-border); background:#fff; border-radius:16px; padding:4px 10px; font-size:.8rem; cursor:pointer; user-select:none;}
   .chip.active{background:var(--c-main); color:#fff; border-color:var(--c-main);}
@@ -201,12 +208,11 @@
   </div>
   <div id="sidebar">
     <div id="controls">
-      <div style="display:flex; gap:6px;">
-        <input id="placeBox" type="search" placeholder="地名で移動（例：鏡町／松橋／日奈久）" style="flex:1;">
-        <button class="btn" id="placeGo" style="flex:0 0 auto;">移動</button>
+      <div style="position:relative;">
+        <input id="searchBox" type="search" autocomplete="off"
+               placeholder="検索（施設名・地名・おにぎり・おむつ など）">
+        <div id="searchSuggest"></div>
       </div>
-      <div id="placeMsg" style="font-size:.72rem; color:var(--c-sub); margin-top:3px;"></div>
-      <input id="searchBox" type="search" placeholder="フリーワード検索（例：おにぎり おむつ ミルク）" style="margin-top:6px;">
       <div id="genreChips"></div>
       <button id="addSpotBtn">＋ 新しい拠点を地図に追加</button>
       <div style="font-size:.7rem; color:var(--c-sub); margin-top:6px;">
@@ -233,6 +239,13 @@
       <div class="card">
         <h2 id="feedTitle">🕒 最新の投稿</h2>
         <div id="feed"><div class="empty">読み込み中…</div></div>
+      </div>
+      <div class="card">
+        <h2>🛒 支援情報一覧 <span id="supportCount" class="stat"></span></h2>
+        <div style="font-size:.72rem; color:var(--c-sub); margin-bottom:6px;">
+          投稿がある拠点の一覧です（新しい順）。タップすると地図で開きます。
+        </div>
+        <div id="supportList"><div class="empty">読み込み中…</div></div>
       </div>
     </div>
   </div>
@@ -669,7 +682,47 @@ function renderDetail(){
   }
 }
 
-function refresh(){ renderChips(); renderMarkers(); renderFeed(); renderDetail(); }
+/* 支援情報一覧：投稿がある拠点を新着順で常に表示する */
+function renderSupportList(){
+  const el = document.getElementById("supportList");
+  if(!el) return;
+  const items = allSpots()
+    .map(s=>{
+      const posts = spotPosts(s.id);
+      if(!posts.length) return null;
+      const latest = [...posts].sort((a,b)=>b.time - a.time)[0];
+      return {s, latest, n:posts.length, st:statusOf(s.id)};
+    })
+    .filter(Boolean)
+    .filter(({s})=>matches(s))           // ジャンル絞り込み・検索語を反映
+    .sort((a,b)=>b.latest.time - a.latest.time);
+
+  const cntEl = document.getElementById("supportCount");
+  if(cntEl) cntEl.textContent = items.length ? `${items.length}件` : "";
+
+  if(!items.length){
+    el.innerHTML = '<div class="empty">まだ投稿がありません。施設をタップして最初の情報を投稿してください。</div>';
+    return;
+  }
+  el.innerHTML = items.slice(0, 80).map(({s, latest, n, st}, i)=>{
+    const g = GENRES[s.genre] || GENRES.other;
+    const dot = `<i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${STATUS_COLORS[st]};margin-right:5px;"></i>`;
+    return `<div class="post supportItem" data-i="${i}" style="cursor:pointer;">
+      <div>${dot}<b>${g.emoji} ${esc(s.name)}</b><span class="area" style="color:var(--c-sub);font-size:.75rem;margin-left:6px;">${esc(areaOf(s.lat, s.lng))}</span></div>
+      <div style="margin-top:2px;">${esc(latest.text)}</div>
+      <div class="meta">${esc(latest.name)||"匿名"} ｜ ${rel(latest.time)}${n>1?`｜💬${n}件`:""}</div>
+    </div>`;
+  }).join("");
+  el.querySelectorAll(".supportItem").forEach(node=>{
+    node.onclick = ()=>{
+      const it = items[Number(node.dataset.i)];
+      map.setView([it.s.lat, it.s.lng], 16);
+      openSpot(it.s.id);
+    };
+  });
+}
+
+function refresh(){ renderChips(); renderMarkers(); renderFeed(); renderDetail(); renderSupportList(); }
 
 // サイト全体の閲覧数（1セッション1回だけカウント）
 async function countSiteView(){
@@ -902,104 +955,73 @@ document.getElementById("modalOk").onclick = async (e)=>{
   }catch(err){ alert("追加に失敗しました: " + err.message); }
   btn.disabled = false;
 };
-document.getElementById("searchBox").addEventListener("input", e=>{
-  searchText = e.target.value; refresh();
-});
-
-/* ================= 地名検索（被災地周辺を優先） ================= */
-let placeMarker = null;
-// 熊本県の範囲。この外の候補（他県）は除外する
-const KUMAMOTO_BB = {s:32.05, w:129.75, n:33.30, e:131.35};
-// 被災中心（八代市鏡町）からの距離が近い候補を優先する
-const CORE_POINT = {lat:32.5980, lng:130.6660};
-
-function moveToPlace(lat, lng, title){
-  map.setView([lat, lng], 15);
-  if(placeMarker) placeMarker.remove();
-  placeMarker = L.circleMarker([lat, lng],
-    {radius:10, color:"#fff", weight:2, fillColor:"#2c6e49", fillOpacity:.9})
-    .addTo(map).bindTooltip(title, {direction:"top"});
-  renderMarkers();
-  document.getElementById("placeMsg").innerHTML = "移動しました：" + esc(title);
-}
-
-async function gsiSearch(q){
-  try{
-    const url = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=" + encodeURIComponent(q);
-    const res = await fetch(url);
-    if(!res.ok) return [];
-    const j = await res.json();
-    if(!Array.isArray(j)) return [];
-    return j.map(x=>{
-      const c = x.geometry && x.geometry.coordinates;
-      if(!c) return null;
-      return {lat:c[1], lng:c[0], title:(x.properties && x.properties.title) || q};
-    }).filter(Boolean);
-  }catch(e){ return []; }
-}
-
-async function gotoPlace(){
-  const raw = document.getElementById("placeBox").value.trim();
-  const msg = document.getElementById("placeMsg");
-  if(!raw) return;
-  msg.textContent = "検索中…";
-
-  // 県名が無ければ「熊本県」を付けた検索も併せて実施
-  const queries = /[都道府県]/.test(raw) ? [raw] : ["熊本県" + raw, raw];
-  let cands = [];
-  for(const q of queries){
-    cands = cands.concat(await gsiSearch(q));
-    if(cands.length >= 20) break;
+/* ================= 検索の入力補助（拠点候補を逐次表示） ================= */
+// 座標からおおよその市町村名を判定（一覧に地名を添えるため）
+const AREAS = [
+  ["熊本市",   32.68, 130.55, 33.00, 130.90],
+  ["宇土市",   32.63, 130.55, 32.72, 130.72],
+  ["宇城市",   32.58, 130.44, 32.70, 130.78],
+  ["氷川町",   32.54, 130.62, 32.61, 130.78],
+  ["八代市",   32.38, 130.53, 32.62, 130.92],
+  ["嘉島町",   32.70, 130.70, 32.78, 130.79],
+  ["益城町",   32.75, 130.78, 32.90, 130.95],
+  ["美里町",   32.55, 130.72, 32.68, 130.90],
+  ["御船町",   32.66, 130.75, 32.80, 130.95],
+  ["甲佐町",   32.58, 130.75, 32.70, 130.90],
+  ["上天草市", 32.42, 130.20, 32.62, 130.48],
+  ["天草市",   32.15, 129.95, 32.62, 130.30],
+  ["芦北町",   32.20, 130.45, 32.40, 130.75],
+  ["水俣市",   32.15, 130.30, 32.30, 130.55],
+  ["人吉市",   32.15, 130.68, 32.35, 130.85]
+];
+function areaOf(lat, lng){
+  for(const [name, s, w, n, e] of AREAS){
+    if(lat >= s && lat <= n && lng >= w && lng <= e) return name;
   }
+  return "";
+}
 
-  // 熊本県内に限定し、被災中心に近い順に並べる
-  cands = cands.filter(c =>
-    c.lat > KUMAMOTO_BB.s && c.lat < KUMAMOTO_BB.n &&
-    c.lng > KUMAMOTO_BB.w && c.lng < KUMAMOTO_BB.e);
-  // 同一地点の重複を除去
-  const seen = new Set();
-  cands = cands.filter(c=>{
-    const k = c.lat.toFixed(4) + "," + c.lng.toFixed(4);
-    if(seen.has(k)) return false;
-    seen.add(k); return true;
+const suggestBox = document.getElementById("searchSuggest");
+function hideSuggest(){ suggestBox.style.display = "none"; }
+function renderSuggest(q){
+  const query = q.trim().toLowerCase();
+  if(!query){ hideSuggest(); return; }
+  const hits = allSpots()
+    .filter(s=>s.name.toLowerCase().includes(query))
+    .slice(0, 200);
+  // 投稿がある拠点を先に、それ以外は名前順
+  hits.sort((a,b)=>{
+    const pa = spotPosts(a.id).length, pb = spotPosts(b.id).length;
+    if(pa !== pb) return pb - pa;
+    return a.name.length - b.name.length;
   });
-  const distKm = c => {
-    const dLat = (c.lat - CORE_POINT.lat) * 111;
-    const dLng = (c.lng - CORE_POINT.lng) * 111 * Math.cos(c.lat * Math.PI/180);
-    return Math.sqrt(dLat*dLat + dLng*dLng);
-  };
-  cands.sort((a,b)=>distKm(a) - distKm(b));
-
-  // 読み込み済みの施設名からの一致も候補に加える
-  const localHits = allSpots().filter(s=>s.name.includes(raw)).slice(0, 5)
-    .map(s=>({lat:s.lat, lng:s.lng, title:s.name + "（施設）", spotId:s.id}));
-
-  const all = cands.slice(0, 8).concat(localHits);
-  if(!all.length){
-    msg.textContent = "熊本県内で見つかりませんでした。市町村名を付けてお試しください（例：八代市鏡町）";
-    return;
-  }
-  if(all.length === 1){
-    const c = all[0];
-    if(c.spotId) openSpot(c.spotId); else moveToPlace(c.lat, c.lng, c.title);
-    return;
-  }
-  // 候補が複数のときは選択させる（被災地に近い順）
-  msg.innerHTML = "候補（被災地に近い順）：" + all.map((c,i)=>
-    `<a href="#" class="placeCand" data-i="${i}" style="display:inline-block; margin:3px 6px 0 0; color:var(--c-main);">${esc(c.title)}（約${Math.round(distKm(c))}km）</a>`
-  ).join("");
-  msg.querySelectorAll(".placeCand").forEach(a=>{
-    a.onclick = ev=>{
-      ev.preventDefault();
-      const c = all[Number(a.dataset.i)];
-      if(c.spotId) openSpot(c.spotId); else moveToPlace(c.lat, c.lng, c.title);
+  const list = hits.slice(0, 12);
+  if(!list.length){ hideSuggest(); return; }
+  suggestBox.innerHTML = list.map((s,i)=>{
+    const g = GENRES[s.genre] || GENRES.other;
+    const n = spotPosts(s.id).length;
+    return `<div class="sgItem" data-i="${i}">${g.emoji} ${esc(s.name)}` +
+           `<span class="area">${esc(areaOf(s.lat, s.lng))}</span>` +
+           (n ? `<span class="area">💬${n}</span>` : "") + `</div>`;
+  }).join("");
+  suggestBox.style.display = "block";
+  suggestBox.querySelectorAll(".sgItem").forEach(el=>{
+    el.onclick = ()=>{
+      const s = list[Number(el.dataset.i)];
+      hideSuggest();
+      map.setView([s.lat, s.lng], 16);
+      openSpot(s.id);
     };
   });
 }
-document.getElementById("placeGo").onclick = gotoPlace;
-document.getElementById("placeBox").addEventListener("keydown", e=>{
-  if(e.key === "Enter"){ e.preventDefault(); gotoPlace(); }
+document.getElementById("searchBox").addEventListener("input", e=>{
+  searchText = e.target.value;
+  renderSuggest(searchText);
+  refresh();
 });
+document.getElementById("searchBox").addEventListener("blur", ()=>setTimeout(hideSuggest, 200));
+document.getElementById("searchBox").addEventListener("focus", e=>renderSuggest(e.target.value));
+
 
 /* ================= タブ切替（マップ／投稿一覧／公式リンク集） ================= */
 const VIEWS = {map:"layout", help:"helpView", feed:"feedView", wall:"wallView", links:"linksView", author:"authorView"};
@@ -1455,6 +1477,7 @@ setInterval(()=>{
   if(document.hidden) return;   // 非表示タブでは動かさない（通信・電池の節約）
   renderFeed();
   renderDetail();
+  renderSupportList();
   renderStats();
   if(wallSubscribed) renderWall();
   if(helpSubscribed) renderHelp();
