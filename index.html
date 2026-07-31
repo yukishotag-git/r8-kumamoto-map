@@ -648,7 +648,6 @@ function renderDetail(){
     ` <span class="stat">💬 ${spotPosts(s.id).length}　👁 ${viewCounts[s.id] || 0}</span>`;
   // 電話番号・営業時間（登録がある施設のみ）
   const info = [];
-  if(s.note) info.push("⛽ " + esc(s.note));
   if(s.hours) info.push("🕒 " + esc(s.hours));
   if(s.tel) info.push(`☎ <a href="tel:${esc(s.tel.replace(/[^0-9+]/g,""))}">${esc(s.tel)}</a>`);
   if(info.length){
