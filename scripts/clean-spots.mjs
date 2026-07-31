@@ -110,6 +110,33 @@ function areaOf(lat, lng){
   return "";
 }
 
+// 名前が実質同じかどうか（表記ゆれ・接頭辞の違いを吸収）
+function sameName(a, b){
+  const x = norm(a).replace(/^(天然温泉|温泉|株式会社|有限会社)/, "");
+  const y = norm(b).replace(/^(天然温泉|温泉|株式会社|有限会社)/, "");
+  if(x === y) return true;
+  const short = x.length <= y.length ? x : y;
+  const long  = x.length <= y.length ? y : x;
+  return short.length >= 4 && long.includes(short);
+}
+
+// ファイルをまたいだ重複を除去する（優先度の高いデータを残す）
+export function dedupeAcrossFiles(datasets){
+  // datasets: [{path, spots, priority}] priorityが小さいほど優先
+  const sorted = [...datasets].sort((a, b)=>a.priority - b.priority);
+  const accepted = [];
+  let removed = 0;
+  for(const ds of sorted){
+    ds.spots = ds.spots.filter(s=>{
+      const dup = accepted.find(k => distM(k, s) < 250 && sameName(k.name, s.name));
+      if(dup){ removed++; return false; }
+      accepted.push(s);
+      return true;
+    });
+  }
+  return removed;
+}
+
 // 単体実行時：data配下のJSONをその場で整形する
 if(import.meta.url === `file://${process.argv[1]}`){
   const targets = [];
@@ -120,14 +147,27 @@ if(import.meta.url === `file://${process.argv[1]}`){
     try{ await readFile(extra); targets.push(extra); }catch(e){}
   }
 
+  // ① ファイルごとの整形
+  const datasets = [];
   for(const path of targets){
     const j = JSON.parse(await readFile(path, "utf-8"));
     const before = j.spots.length;
     const {spots, stat} = cleanSpots(j.spots);
-    j.spots = spots;
-    j.count = spots.length;
-    await writeFile(path, JSON.stringify(j));
     console.log(`${path}: ${before} → ${spots.length}件  統合${stat.merged} / 無名削除${stat.droppedUnnamed}` +
       ` / 識別子${stat.renamed} / 同名区別${stat.disambiguated} / 座標分散${stat.spread} / 名称整形${stat.tidied}`);
+    // 優先度：手動登録（店名・電話が正確） > OSM > Overture
+    const priority = path.includes("manual") ? 0 : path.includes("overture") ? 2 : 1;
+    datasets.push({path, json:j, spots, priority});
   }
+
+  // ② ファイルをまたいだ重複を除去
+  const removed = dedupeAcrossFiles(datasets);
+  console.log(`\nファイル間の重複除去: ${removed}件`);
+
+  for(const ds of datasets){
+    ds.json.spots = ds.spots;
+    ds.json.count = ds.spots.length;
+    await writeFile(ds.path, JSON.stringify(ds.json));
+  }
+  console.log('合計:', datasets.reduce((n,d)=>n+d.spots.length, 0), '件');
 }

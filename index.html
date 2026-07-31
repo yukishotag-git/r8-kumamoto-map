@@ -181,7 +181,6 @@
 <body>
 <header>
   <h1>令和8年熊本地震 被災者応援サイト</h1>
-  <span class="note">ログイン不要・みんなで情報を共有するサイトです</span>
   <nav id="tabs">
     <button class="tabBtn active" id="tabMap">🗺 マップ</button>
     <button class="tabBtn" id="tabFeed">📝 マップ投稿<span class="lbl">一覧</span></button>
@@ -1139,6 +1138,7 @@ const HELP_STATUS = {
   closed:   {label:"⚪ クローズ", cls:"st-closed"}
 };
 let helpThreads = [];     // [{id, text, name, category, status, time, upd, lat, lng}]
+let legacyCheers = [];    // 旧「エール」の投稿（表示のみ）
 let helpLoc = null;       // 投稿しようとしているヘルプの位置
 let helpReplies = {};     // {helpId: [{text, name, time}]}
 let helpSubscribed = false;
@@ -1161,6 +1161,17 @@ function initHelp(){
     renderHelp();
     renderMarkers();   // マップ上の🆘表示も更新
   }, err=>console.error("help購読エラー", err));
+  // 旧「エール」の投稿もフリー投稿一覧に統合して表示する
+  fs.onSnapshot(fs.query(fs.collection(db,"wall"), fs.orderBy("createdAt","desc"), fs.limit(300)), snap=>{
+    legacyCheers = snap.docs.map(d=>{
+      const v = d.data();
+      const t = tsMillis(v.createdAt);
+      return {id:"wall-" + d.id, text:v.text, name:v.nickname || v.from || "",
+              category:"エール", status:"open", time:t, upd:t, lat:null, lng:null, legacy:true};
+    });
+    renderHelp();
+  }, err=>console.error("旧エール購読エラー", err));
+
   fs.onSnapshot(fs.query(fs.collection(db,"helpReplies"), fs.orderBy("createdAt","asc"), fs.limit(1000)), snap=>{
     helpReplies = {};
     snap.docs.forEach(d=>{
@@ -1203,6 +1214,9 @@ async function setHelpStatus(id, status){
   }
 }
 
+// 新しいフリー投稿と旧エールを合わせた一覧
+function allThreads(){ return helpThreads.concat(legacyCheers); }
+
 function helpMatches(t){
   if(helpFilterCat !== "all" && t.category !== helpFilterCat) return false;
   const q = helpSearch.trim().toLowerCase();
@@ -1223,13 +1237,13 @@ function renderHelp(){
     catsEl.appendChild(c);
   };
   const n = {};
-  helpThreads.forEach(t=>{ n[t.category] = (n[t.category] || 0) + 1; });
-  mkChip("all", `すべて (${helpThreads.length})`);
+  allThreads().forEach(t=>{ n[t.category] = (n[t.category] || 0) + 1; });
+  mkChip("all", `すべて (${allThreads().length})`);
   HELP_CATS.forEach(c=>mkChip(c, `${CAT_EMOJI[c]} ${c}${n[c] ? " ("+n[c]+")" : ""}`));
 
   // スレッド一覧（最新の動きがあった順）
   const list = document.getElementById("helpList");
-  const items = helpThreads.filter(helpMatches).sort((a,b)=>b.upd - a.upd);
+  const items = allThreads().filter(helpMatches).sort((a,b)=>b.upd - a.upd);
   if(!items.length){
     list.innerHTML = '<div class="empty">該当する投稿がありません。上のフォームから投稿できます。</div>';
     return;
@@ -1238,7 +1252,7 @@ function renderHelp(){
     const st = HELP_STATUS[t.status] || HELP_STATUS.open;
     const reps = helpReplies[t.id] || [];
     const open = expandedHelpId === t.id;
-    const isTask = t.category === "ヘルプ" || t.category === "支援可能";
+    const isTask = !t.legacy && (t.category === "ヘルプ" || t.category === "支援可能");
     let inner = `
       <div><span class="hcat">${CAT_EMOJI[t.category] || "💬"} ${esc(t.category)}</span>` +
       (isTask ? ` <span class="hstatus ${st.cls}">${st.label}</span>` : "") +
@@ -1261,7 +1275,7 @@ function renderHelp(){
     }
     return `<div class="helpCard">
       ${inner}
-      <div class="hbtns"><button class="hbtn hToggle" data-id="${esc(t.id)}">${open ? "▲ 閉じる" : "💬 スレッドを開く・返信"}</button></div>
+      ${t.legacy ? "" : `<div class="hbtns"><button class="hbtn hToggle" data-id="${esc(t.id)}">${open ? "▲ 閉じる" : "💬 スレッドを開く・返信"}</button></div>`}
     </div>`;
   }).join("");
 
