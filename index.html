@@ -45,7 +45,7 @@
   .menuItem + .menuItem{border-top:1px solid var(--c-border);}
   .tabBtn{border:1px solid rgba(255,255,255,.5); background:transparent; color:#fff; border-radius:16px; padding:5px 14px; font-size:.85rem; cursor:pointer;}
   .tabBtn.active{background:#fff; color:var(--c-main); font-weight:700; border-color:#fff;}
-  #linksView, #feedView, #helpView, #authorView, #wallView{display:none; flex:1; overflow-y:auto; padding:14px; max-width:640px; margin:0 auto; width:100%;}
+  #linksView, #feedView, #helpView, #authorView{display:none; flex:1; overflow-y:auto; padding:14px; max-width:640px; margin:0 auto; width:100%;}
   .tabBtn.help{border-color:#c9a6e0;}
   .tabBtn.help.active{background:var(--c-help); color:#fff; border-color:var(--c-help);}
   .hstatus{font-size:.72rem; font-weight:700; border-radius:10px; padding:2px 8px; color:#fff;}
@@ -53,6 +53,10 @@
   .st-resolved{background:#2c6e49;}
   .st-closed{background:#999;}
   .hcat{font-size:.72rem; background:#eee; border-radius:10px; padding:2px 8px; color:#555;}
+  .typePick{display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px;}
+  .typeBtn{border:1px solid var(--c-border); background:#fff; border-radius:16px; padding:6px 11px;
+           font-size:.82rem; cursor:pointer;}
+  .typeBtn.on{background:var(--c-help); color:#fff; border-color:var(--c-help); font-weight:700;}
   .helpCard{background:var(--c-card); border:1px solid var(--c-border); border-radius:10px; padding:10px 12px; margin-bottom:8px;}
   .helpCard .hbody{margin:6px 0 4px;}
   .helpCard .hbtns{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;}
@@ -179,15 +183,14 @@
   <h1>令和8年熊本地震 被災者応援サイト</h1>
   <span class="note">ログイン不要・みんなで情報を共有するサイトです</span>
   <nav id="tabs">
-    <button class="tabBtn active" id="tabMap">🛒 支援情報</button>
-    <button class="tabBtn help" id="tabHelp">🆘 ヘルプ</button>
-    <button class="tabBtn" id="tabWall">📣 エール</button>
-    <button class="tabBtn" id="tabAuthor">✉ 管理者へ</button>
+    <button class="tabBtn active" id="tabMap">🗺 マップ</button>
+    <button class="tabBtn" id="tabFeed">📝 マップ投稿<span class="lbl">一覧</span></button>
+    <button class="tabBtn help" id="tabPost">📣 フリー投稿</button>
+    <button class="tabBtn" id="tabLinks">🏛<span class="lbl"> 公式</span>リンク<span class="lbl">集</span></button>
     <button class="tabBtn icon" id="menuBtn" title="その他メニュー">☰</button>
     <div id="menuPop">
-      <button class="menuItem" id="miFeed">📝 支援情報の投稿一覧</button>
-      <button class="menuItem" id="miLinks">🏛 公式リンク集</button>
       <button class="menuItem" id="miShare">📱 このサイトを共有（QR）</button>
+      <button class="menuItem" id="miAuthor">✉ 管理者へ</button>
       <button class="menuItem" id="miReload">⟳ 最新の情報に更新</button>
     </div>
   </nav>
@@ -215,11 +218,6 @@
       </div>
       <div id="genreChips"></div>
       <button id="addSpotBtn">＋ 新しい拠点を地図に追加</button>
-      <div style="font-size:.7rem; color:var(--c-sub); margin-top:6px;">
-        ピンの色は<b>最新投稿の内容</b>で変わります（小さい緑=未投稿／黄=支援情報あり／赤=危険・利用不可／紫=🆘ヘルプ）。
-        施設データはOpenStreetMapとOverture Maps。公式情報は右上の「☰」メニューから。
-        載っていない施設は「＋新しい拠点を地図に追加」で登録できます。
-      </div>
     </div>
     <div id="panels">
       <div id="detailCard" class="card">
@@ -251,24 +249,6 @@
   </div>
 </div>
 
-<div id="wallView">
-  <div class="card" style="border-left:4px solid var(--c-main); margin-bottom:12px;">
-    <h2 style="font-size:.95rem; margin-bottom:6px;">📣 フリー投稿</h2>
-    <div style="font-size:.78rem; color:var(--c-sub); margin-bottom:8px;">
-      応援メッセージ、役立つ情報、お困りごと以外の共有などを自由に投稿できます。匿名でも構いません。
-      個人情報や誹謗中傷はご遠慮ください。
-    </div>
-    <textarea id="wallText" maxlength="500" placeholder="自由に投稿（例：〇〇公園で炊き出しやってます／みなさん無理せず休んでください）"></textarea>
-    <div class="formRow" style="display:flex; gap:8px; flex-wrap:wrap;">
-      <input id="wallName" type="text" maxlength="30" placeholder="お名前・団体名（任意）" style="flex:2; min-width:140px;">
-      <input id="wallFrom" type="text" maxlength="30" placeholder="地域・所属（任意 例：八代市／〇〇ボランティア）" style="flex:2; min-width:140px;">
-      <button class="btn" id="wallSubmit" style="flex:0 0 auto;">投稿</button>
-    </div>
-  </div>
-  <input id="wallSearch" type="search" placeholder="投稿を検索（例：炊き出し ボランティア 応援）">
-  <div id="wallList" style="margin-top:12px;"><div class="empty">読み込み中…</div></div>
-</div>
-
 <div id="authorView">
   <div class="card" style="border-left:4px solid var(--c-main); margin-bottom:12px;">
     <h2 style="font-size:.95rem; margin-bottom:6px;">✉ 作者へのご意見・機能要望</h2>
@@ -291,26 +271,23 @@
 </div>
 
 <div id="helpView">
-  <div class="card" style="border-left:4px solid var(--c-help); margin-bottom:12px;">
-    <h2 style="font-size:.95rem; margin-bottom:8px; color:var(--c-help);">🆘 緊急ヘルプを投稿</h2>
-    <textarea id="helpText" maxlength="500" placeholder="困っていること・探しているもの（例：粉ミルクが手に入りません。松橋周辺で入手できる場所を知りませんか？）"></textarea>
+  <div class="card" style="border-left:4px solid var(--c-help); margin-bottom:10px;">
+    <div id="helpCatPick" class="typePick"></div>
+    <textarea id="helpText" maxlength="500" placeholder="自由に書いてください（例：粉ミルクを探しています／〇〇公園で炊き出しやってます／みなさん無理せず）"></textarea>
     <div class="formRow" style="display:flex; gap:8px;">
-      <select id="helpCat" style="flex:1;"></select>
-      <input id="helpName" type="text" maxlength="20" placeholder="ニックネーム（任意）" style="flex:1;">
+      <input id="helpName" type="text" maxlength="20" placeholder="お名前（任意・匿名可）" style="flex:1;">
+      <button class="btn" id="helpSubmit" style="background:var(--c-help); flex:0 0 auto;">投稿</button>
     </div>
-    <div class="formRow" style="font-size:.78rem; color:var(--c-sub);">
-      <span id="helpLocText">📍 位置情報: 取得していません</span>
-      <button class="hbtn" id="helpUseGeo" style="margin-left:6px;">現在地を使う</button>
+    <div class="formRow" style="font-size:.75rem; color:var(--c-sub);">
+      <span id="helpLocText">📍 位置なし</span>
+      <button class="hbtn" id="helpUseGeo">現在地</button>
       <button class="hbtn" id="helpPickMap">地図で指定</button>
       <button class="hbtn" id="helpClearLoc">位置なし</button>
-      <div style="margin-top:4px;">※位置を付けるとマップに🆘（黄色）で表示され、近くの人が気づきやすくなります。</div>
-    </div>
-    <div class="formRow" style="text-align:right;">
-      <button class="btn" id="helpSubmit" style="background:var(--c-help);">投稿する</button>
+      <span style="margin-left:4px;">位置を付けるとマップにも表示されます</span>
     </div>
   </div>
-  <input id="helpSearch" type="search" placeholder="投稿を検索（例：水 オムツ シャワー エアコン）">
-  <div id="helpCats" style="display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 12px;"></div>
+  <input id="helpSearch" type="search" placeholder="投稿を検索（例：水 オムツ 炊き出し 応援）">
+  <div id="helpCats" style="display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 10px;"></div>
   <div id="helpList"><div class="empty">読み込み中…</div></div>
 </div>
 
@@ -399,7 +376,7 @@ const GENRES = {
   bank:   {label:"銀行・ATM",        emoji:"🏦", color:"#a5563f"},
   road:   {label:"道路規制・通行止め", emoji:"🚧", color:"#7b241c"},
   other:  {label:"その他",           emoji:"📍", color:"#b9564a"},
-  helpreq:{label:"ヘルプ（困っています）", emoji:"🆘", color:"#7b3fa0"}
+  helpreq:{label:"フリー投稿", emoji:"📣", color:"#7b3fa0"}
 };
 /* ピンの色：最新投稿の内容で判定した状況を表す
    赤=利用できない/困難、黄=注意・要確認、緑=利用できそう、淡緑(小)=投稿なし、黄(角丸)=ヘルプ */
@@ -485,7 +462,7 @@ legendCtl.onAdd = ()=>{
     item(STATUS_COLORS.none, "未投稿", "width:9px;height:9px;") +
     item(STATUS_COLORS.warn, "支援情報あり") +
     item(STATUS_COLORS.bad, "危険・利用不可") +
-    item(STATUS_COLORS.help, "🆘ヘルプ", "border-radius:3px;");
+    item(STATUS_COLORS.help, "フリー投稿", "border-radius:3px;");
   L.DomEvent.disableClickPropagation(d);
   return d;
 };
@@ -556,7 +533,7 @@ function renderMarkers(){
   const q = searchText.trim().toLowerCase();
   const words = q.split(/[\s　]+/).filter(Boolean);
   if(filterGenre === "all" || filterGenre === "helpreq"){
-    helpThreads.filter(h=>h.lat && h.lng && h.status === "open")
+    helpThreads.filter(h=>h.lat && h.lng && h.status === "open" && MAP_CATS.includes(h.category))
       .filter(h=>{
         if(!words.length) return true;
         const hay = [h.text, h.name, h.category].join(" ").toLowerCase();
@@ -564,18 +541,21 @@ function renderMarkers(){
       })
       .filter(h=>bounds.contains([h.lat, h.lng]))
       .forEach(h=>{
-        const g = GENRES.helpreq;
-        const m = L.marker([h.lat, h.lng], {icon: makeIcon("helpreq", false, "help"), zIndexOffset: 500});
-        m.bindTooltip("🆘 " + esc(h.category), {direction:"top", offset:[0,-16]});
+        const emo = CAT_EMOJI[h.category] || "💬";
+        const icon = L.divIcon({className:"",
+          html:`<div class="spotIcon" style="width:32px;height:32px;font-size:15px;background:${STATUS_COLORS.help};border-radius:6px;">${emo}</div>`,
+          iconSize:[32,32], iconAnchor:[16,16]});
+        const m = L.marker([h.lat, h.lng], {icon, zIndexOffset: 500});
+        m.bindTooltip(emo + " " + esc(h.category), {direction:"top", offset:[0,-16]});
         m.on("click", ()=>{
           L.popup({offset:[0,-14]}).setLatLng([h.lat, h.lng])
-            .setContent(`<b>🆘 ${esc(h.category)}</b><br>${esc(h.text.slice(0,120))}` +
+            .setContent(`<b>${emo} ${esc(h.category)}</b><br>${esc(h.text.slice(0,120))}` +
               `<br><span style="color:#777;font-size:.8em;">${esc(h.name)||"匿名"}｜${rel(h.time)}</span>` +
-              `<br><a href="#" id="popHelpOpen" style="color:var(--c-help);">→ ヘルプ画面で返信する</a>`)
+              `<br><a href="#" id="popHelpOpen" style="color:var(--c-help);">→ フリー投稿で返信する</a>`)
             .openOn(map);
           setTimeout(()=>{
             const a = document.getElementById("popHelpOpen");
-            if(a) a.onclick = ev=>{ ev.preventDefault(); expandedHelpId = h.id; showTab("help"); };
+            if(a) a.onclick = ev=>{ ev.preventDefault(); expandedHelpId = h.id; showTab("post"); };
           }, 50);
         });
         m.addTo(markerLayer);
@@ -607,10 +587,10 @@ function renderChips(){
   const spots = allSpots();
   const counts = {};
   spots.forEach(s=>{ counts[s.genre] = (counts[s.genre] || 0) + 1; });
-  const helpN = helpThreads.filter(h=>h.lat && h.lng && h.status === "open").length;
+  const helpN = helpThreads.filter(h=>h.lat && h.lng && h.status === "open" && MAP_CATS.includes(h.category)).length;
 
   mk("all", `すべて (${spots.length.toLocaleString()})`);
-  mk("helpreq", `🆘 ヘルプ (${helpN})`);
+  mk("helpreq", `📣 フリー投稿 (${helpN})`);
   Object.entries(GENRES).forEach(([key,g])=>{
     if(key === "helpreq") return;
     const n = counts[key] || 0;
@@ -770,7 +750,7 @@ function renderStats(){
   const mapPosts = Object.values(postsMap).reduce((n, a)=>n + a.length, 0);
   el.innerHTML = `👁 サイト閲覧数: <b>${site.toLocaleString()}</b> 回<br>` +
     `💬 投稿合計: <b>${total.toLocaleString()}</b> 件` +
-    `（マップ ${mapPosts.toLocaleString()}／フリー ${otherCounts.wall}／ヘルプ ${otherCounts.help}＋返信 ${otherCounts.helpReplies}／ご意見 ${otherCounts.feedback}）<br>` +
+    `（マップ ${mapPosts.toLocaleString()}／フリー投稿 ${otherCounts.help}＋返信 ${otherCounts.helpReplies}／旧エール ${otherCounts.wall}／ご意見 ${otherCounts.feedback}）<br>` +
     `<span style="font-size:.75rem;">※閲覧数は同じ端末の同じ訪問では1回として数えます</span>`;
 }
 const renderSiteStats = renderStats;  // 互換用
@@ -1048,11 +1028,11 @@ document.getElementById("searchBox").addEventListener("focus", e=>renderSuggest(
 
 
 /* ================= タブ切替（マップ／投稿一覧／公式リンク集） ================= */
-const VIEWS = {map:"layout", help:"helpView", feed:"feedView", wall:"wallView", links:"linksView", author:"authorView"};
+const VIEWS = {map:"layout", post:"helpView", feed:"feedView", links:"linksView", author:"authorView"};
 // feed / links はメニュー内なので、タブの選択表示は「支援情報」に含める
-const TABS  = {map:"tabMap", help:"tabHelp", feed:"tabMap", wall:"tabWall", links:"tabMap", author:"tabAuthor"};
+const TABS  = {map:"tabMap", post:"tabPost", feed:"tabFeed", links:"tabLinks", author:"tabMap"};
 function showTab(which){
-  ["tabMap","tabHelp","tabWall","tabAuthor"].forEach(id=>
+  ["tabMap","tabFeed","tabPost","tabLinks"].forEach(id=>
     document.getElementById(id).classList.remove("active"));
   Object.keys(VIEWS).forEach(k=>{
     document.getElementById(VIEWS[k]).style.display =
@@ -1061,12 +1041,13 @@ function showTab(which){
   });
   if(which === "map") setTimeout(()=>map.invalidateSize(), 100);
   if(which === "feed") renderGlobalFeed();
-  if(which === "help") initHelp();
+  if(which === "post") initHelp();
   if(which === "author") initFeedback();
-  if(which === "wall") initWall();
 }
 document.getElementById("tabMap").onclick = ()=>showTab("map");
-document.getElementById("tabHelp").onclick = ()=>showTab("help");
+document.getElementById("tabPost").onclick = ()=>showTab("post");
+document.getElementById("tabFeed").onclick = ()=>showTab("feed");
+document.getElementById("tabLinks").onclick = ()=>showTab("links");
 
 /* ================= その他メニュー ================= */
 const menuPop = document.getElementById("menuPop");
@@ -1075,93 +1056,8 @@ document.getElementById("menuBtn").onclick = e=>{
   menuPop.style.display = menuPop.style.display === "block" ? "none" : "block";
 };
 document.addEventListener("click", ()=>{ menuPop.style.display = "none"; });
-document.getElementById("miFeed").onclick = ()=>showTab("feed");
-document.getElementById("miLinks").onclick = ()=>showTab("links");
+document.getElementById("miAuthor").onclick = ()=>showTab("author");
 document.getElementById("miReload").onclick = ()=>location.reload();
-document.getElementById("tabAuthor").onclick = ()=>showTab("author");
-document.getElementById("tabWall").onclick = ()=>showTab("wall");
-
-/* ================= フリー投稿（エール・情報共有） ================= */
-let wallPosts = [];
-let wallSubscribed = false;
-let wallSearch = "";
-function initWall(){
-  if(wallSubscribed){ renderWall(); return; }
-  wallSubscribed = true;
-  if(!db){ renderWall(); return; }
-  fs.onSnapshot(fs.query(fs.collection(db,"wall"), fs.orderBy("createdAt","desc"), fs.limit(300)), snap=>{
-    wallPosts = snap.docs.map(d=>{
-      const v = d.data();
-      return {text:v.text, name:v.nickname||"", from:v.from||"", time:tsMillis(v.createdAt)};
-    });
-    renderWall();
-  }, err=>console.error("wall購読エラー", err));
-}
-function renderWall(){
-  const el = document.getElementById("wallList");
-  const q = wallSearch.trim().toLowerCase();
-  const words = q.split(/[\s　]+/).filter(Boolean);
-  const items = wallPosts.filter(p=>{
-    if(!words.length) return true;
-    const hay = [p.text, p.name, p.from].join(" ").toLowerCase();
-    return words.every(w=>hay.includes(w));
-  });
-  if(!items.length){
-    el.innerHTML = q
-      ? '<div class="empty">検索に一致する投稿がありません。</div>'
-      : '<div class="empty">まだ投稿がありません。最初の一言をお寄せください。</div>';
-    return;
-  }
-  el.innerHTML = items.map(p=>
-    `<div style="background:var(--c-card); border:1px solid var(--c-border); border-radius:10px; padding:10px 12px; margin-bottom:8px; font-size:.88rem;">
-      <div>${esc(p.text)}</div>
-      <div class="meta">${esc(p.name)||"匿名"}${p.from ? "（"+esc(p.from)+"）" : ""} ｜ ${rel(p.time)}</div>
-    </div>`).join("");
-}
-document.getElementById("wallSearch").addEventListener("input", e=>{ wallSearch = e.target.value; renderWall(); });
-document.getElementById("wallSubmit").onclick = async (e)=>{
-  const btn = e.target;
-  const text = document.getElementById("wallText").value.trim();
-  if(!text) return;
-  const name = document.getElementById("wallName").value.trim();
-  const from = document.getElementById("wallFrom").value.trim();
-  btn.disabled = true;
-  try{
-    if(db){
-      await fs.addDoc(fs.collection(db,"wall"),
-        {text, nickname:name, from, createdAt:fs.serverTimestamp()});
-    }else{
-      wallPosts.unshift({text, name, from, time:Date.now()});
-      renderWall();
-    }
-    document.getElementById("wallText").value = "";
-  }catch(err){ alert("投稿に失敗しました: " + err.message); }
-  btn.disabled = false;
-};
-
-/* ================= 共有（QRコード） ================= */
-const SHARE_URL = "https://r8kumamoto.promate2.com/";
-const SHARE_TITLE = "令和8年熊本地震 被災者応援サイト";
-let qrDrawn = false;
-document.getElementById("miShare").onclick = ()=>{
-  document.getElementById("shareBg").style.display = "flex";
-  if(!qrDrawn && window.QRCode){
-    new QRCode(document.getElementById("qrcode"),
-      {text:SHARE_URL, width:250, height:250, correctLevel:QRCode.CorrectLevel.M});
-    qrDrawn = true;
-  }
-};
-document.getElementById("shareClose").onclick = ()=>{ document.getElementById("shareBg").style.display = "none"; };
-document.getElementById("shareBg").onclick = e=>{ if(e.target.id === "shareBg") e.target.style.display = "none"; };
-document.getElementById("shareCopy").onclick = async ()=>{
-  try{ await navigator.clipboard.writeText(SHARE_TITLE + "\n" + SHARE_URL); alert("URLをコピーしました"); }
-  catch(e){ prompt("以下のURLをコピーしてください", SHARE_URL); }
-};
-document.getElementById("shareNative").onclick = async ()=>{
-  if(navigator.share){
-    try{ await navigator.share({title:SHARE_TITLE, text:SHARE_TITLE, url:SHARE_URL}); }catch(e){}
-  }else{ document.getElementById("shareCopy").click(); }
-};
 
 /* ================= 作者へ（ご意見・要望） ================= */
 let feedbacks = [];
@@ -1231,7 +1127,12 @@ document.getElementById("fbSubmit").onclick = async (e)=>{
 };
 
 /* ================= 緊急ヘルプ（スレッド・ステータス・検索） ================= */
-const HELP_CATS = ["水", "食料", "オムツ・ミルク", "医療・薬", "シャワー・入浴", "電源・充電・エアコン", "その他"];
+// 投稿の種類（フリー投稿ページ共通）
+const HELP_CATS = ["ヘルプ", "支援可能", "エール", "情報", "その他"];
+const CAT_EMOJI = {"ヘルプ":"🆘", "支援可能":"🤝", "エール":"📣", "情報":"ℹ️", "その他":"💬"};
+// 位置情報を地図にも表示する種類
+const MAP_CATS = ["ヘルプ", "支援可能", "情報"];
+let helpNewCat = "ヘルプ";   // 投稿フォームで選択中の種類
 const HELP_STATUS = {
   open:     {label:"🆘 対応中",  cls:"st-open"},
   resolved: {label:"✅ 解決",    cls:"st-resolved"},
@@ -1321,22 +1222,27 @@ function renderHelp(){
     c.onclick = ()=>{ helpFilterCat = (key!=="all" && helpFilterCat===key) ? "all" : key; renderHelp(); };
     catsEl.appendChild(c);
   };
-  mkChip("all", "すべて");
-  HELP_CATS.forEach(c=>mkChip(c, c));
+  const n = {};
+  helpThreads.forEach(t=>{ n[t.category] = (n[t.category] || 0) + 1; });
+  mkChip("all", `すべて (${helpThreads.length})`);
+  HELP_CATS.forEach(c=>mkChip(c, `${CAT_EMOJI[c]} ${c}${n[c] ? " ("+n[c]+")" : ""}`));
 
   // スレッド一覧（最新の動きがあった順）
   const list = document.getElementById("helpList");
   const items = helpThreads.filter(helpMatches).sort((a,b)=>b.upd - a.upd);
   if(!items.length){
-    list.innerHTML = '<div class="empty">該当するヘルプ投稿がありません。困りごとがあれば上のフォームから投稿してください。</div>';
+    list.innerHTML = '<div class="empty">該当する投稿がありません。上のフォームから投稿できます。</div>';
     return;
   }
   list.innerHTML = items.map(t=>{
     const st = HELP_STATUS[t.status] || HELP_STATUS.open;
     const reps = helpReplies[t.id] || [];
     const open = expandedHelpId === t.id;
+    const isTask = t.category === "ヘルプ" || t.category === "支援可能";
     let inner = `
-      <div><span class="hstatus ${st.cls}">${st.label}</span> <span class="hcat">${esc(t.category)}</span></div>
+      <div><span class="hcat">${CAT_EMOJI[t.category] || "💬"} ${esc(t.category)}</span>` +
+      (isTask ? ` <span class="hstatus ${st.cls}">${st.label}</span>` : "") +
+      (t.lat ? ` <span class="hcat">📍地図に表示中</span>` : "") + `</div>
       <div class="hbody">${esc(t.text)}</div>
       <div class="meta">${esc(t.name)||"匿名"} ｜ ${rel(t.time)} ｜ 💬 返信${reps.length}件${reps.length?`（最新 ${rel(reps[reps.length-1].time)}）`:""}</div>`;
     if(open){
@@ -1347,11 +1253,11 @@ function renderHelp(){
         <input class="replyName" data-id="${esc(t.id)}" type="text" maxlength="20" placeholder="ニックネーム（任意）" style="flex:1;">
         <button class="btn replySubmit" data-id="${esc(t.id)}">返信</button>
       </div>
-      <div class="hbtns">
+      ${isTask ? `<div class="hbtns">
         ${t.status!=="resolved" ? `<button class="hbtn stBtn" data-id="${esc(t.id)}" data-st="resolved">✅ 解決にする</button>` : ""}
         ${t.status!=="closed" ? `<button class="hbtn stBtn" data-id="${esc(t.id)}" data-st="closed">⚪ クローズ</button>` : ""}
-        ${t.status!=="open" ? `<button class="hbtn stBtn" data-id="${esc(t.id)}" data-st="open">🆘 再開する</button>` : ""}
-      </div>`;
+        ${t.status!=="open" ? `<button class="hbtn stBtn" data-id="${esc(t.id)}" data-st="open">🔄 再開する</button>` : ""}
+      </div>` : ""}`;
     }
     return `<div class="helpCard">
       ${inner}
@@ -1388,7 +1294,7 @@ document.getElementById("helpSubmit").onclick = async (e)=>{
   btn.disabled = true;
   try{
     await createHelp(text, document.getElementById("helpName").value.trim(),
-                     document.getElementById("helpCat").value, helpLoc);
+                     helpNewCat, helpLoc);
     document.getElementById("helpText").value = "";
     helpLoc = null; updateHelpLocText();
   }catch(err){ alert("投稿に失敗しました: " + err.message); }
@@ -1416,7 +1322,17 @@ document.getElementById("helpUseGeo").onclick = ()=>{
 };
 document.getElementById("helpPickMap").onclick = ()=>{ startPick("help"); };
 document.getElementById("helpClearLoc").onclick = ()=>{ helpLoc = null; updateHelpLocText(); };
-document.getElementById("helpCat").innerHTML = HELP_CATS.map(c=>`<option value="${c}">${c}</option>`).join("");
+// 投稿フォームの種類選択
+function renderTypePick(){
+  const el = document.getElementById("helpCatPick");
+  el.innerHTML = HELP_CATS.map(c=>
+    `<button type="button" class="typeBtn${c===helpNewCat?" on":""}" data-c="${c}">${CAT_EMOJI[c]} ${c}</button>`
+  ).join("");
+  el.querySelectorAll(".typeBtn").forEach(b=>{
+    b.onclick = ()=>{ helpNewCat = b.dataset.c; renderTypePick(); };
+  });
+}
+renderTypePick();
 document.getElementById("helpSearch").addEventListener("input", e=>{ helpSearch = e.target.value; renderHelp(); });
 
 /* すべての施設を対象にした投稿一覧（新着順） */
@@ -1503,7 +1419,6 @@ setInterval(()=>{
   renderDetail();
   renderSupportList();
   renderStats();
-  if(wallSubscribed) renderWall();
   if(helpSubscribed) renderHelp();
   if(fbSubscribed) renderFeedback();
 
