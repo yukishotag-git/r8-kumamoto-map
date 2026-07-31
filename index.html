@@ -603,10 +603,19 @@ function renderChips(){
     c.onclick = ()=>{ filterGenre = (key==="all"||filterGenre===key) ? (key==="all"?"all":(filterGenre===key?"all":key)) : key; refresh(); };
     el.appendChild(c);
   };
-  mk("all","すべて");
-  mk("helpreq", "🆘 ヘルプ");
+  // ジャンルごとの登録件数（読み込み済みデータから集計）
+  const spots = allSpots();
+  const counts = {};
+  spots.forEach(s=>{ counts[s.genre] = (counts[s.genre] || 0) + 1; });
+  const helpN = helpThreads.filter(h=>h.lat && h.lng && h.status === "open").length;
+
+  mk("all", `すべて (${spots.length.toLocaleString()})`);
+  mk("helpreq", `🆘 ヘルプ (${helpN})`);
   Object.entries(GENRES).forEach(([key,g])=>{
-    if(key !== "helpreq") mk(key, g.emoji + " " + g.label);
+    if(key === "helpreq") return;
+    const n = counts[key] || 0;
+    if(!n) return;                       // 0件のジャンルは表示しない
+    mk(key, `${g.emoji} ${g.label} (${n.toLocaleString()})`);
   });
 }
 

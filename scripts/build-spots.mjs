@@ -1,6 +1,7 @@
 // OSM(Overpass API)から拠点データを取得し、data/spots/ に地域別JSONを生成する
 // GitHub Actions で定期実行される（手動実行も可）
 import { writeFile, mkdir } from "fs/promises";
+import { cleanSpots } from "./clean-spots.mjs";
 
 const GROUPS = {
   "core":          ["宇城市", "八代市", "氷川町"],                    // 初期表示で必ず読み込む地域
@@ -155,8 +156,12 @@ console.log(`Nominatim使用: ${nomiUsed}件`);
 
 // ---- 書き出し ----
 const index = [];
-for(const [file, spots] of Object.entries(groupSpots)){
-  spots.forEach(s => { s.lat = round(s.lat); s.lng = round(s.lng); delete s.loc; });
+for(const [file, raw] of Object.entries(groupSpots)){
+  raw.forEach(s => { s.lat = round(s.lat); s.lng = round(s.lng); delete s.loc; });
+  // 重複統合・名称の一意化などの点検を通す
+  const {spots, stat} = cleanSpots(raw);
+  console.log(`${file}: ${raw.length} → ${spots.length}件 ` +
+    `(統合${stat.merged} / 無名削除${stat.droppedUnnamed} / 識別子付与${stat.renamed})`);
   const bbox = [
     Math.min(...spots.map(s => s.lat)), Math.min(...spots.map(s => s.lng)),
     Math.max(...spots.map(s => s.lat)), Math.max(...spots.map(s => s.lng))
