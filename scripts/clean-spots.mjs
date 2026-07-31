@@ -14,13 +14,42 @@ const distM = (a, b) => {
 const norm = s => s.replace(/[\s　（）()・\-ー−]/g, "").toLowerCase();
 const UNNAMED = "名称未登録";
 
+// 表記ゆれの統一（英字・全角表記をカタカナに揃える。検索しやすくするため）
+const NAME_FIXES = [
+  [/ＥＮＥＯＳ/gi, "エネオス"], [/ENEOS/gi, "エネオス"],
+  [/7[-\s]?ELEVEN/gi, "セブン-イレブン"], [/Seven[-\s]?Eleven/gi, "セブン-イレブン"],
+  [/セブンイレブン/g, "セブン-イレブン"],
+  [/LAWSON/gi, "ローソン"],
+  [/FAMILY\s?MART/gi, "ファミリーマート"],
+  [/MINI\s?STOP/gi, "ミニストップ"],
+  [/apollostation/gi, "アポロステーション"], [/\bIdemitsu\b/gi, "出光"],
+  [/\bCosmo\b/gi, "コスモ"],
+  [/\bDAISO\b/gi, "ダイソー"],
+  [/\bSeria\b/gi, "セリア"],
+  [/Can\s?Do\b/gi, "キャンドゥ"],
+  [/Super\s?Cent(er|re)\s+TRIAL/gi, "トライアル"], [/\bTRIAL\b/gi, "トライアル"],
+  [/YouMe\s?Town/gi, "ゆめタウン"], [/YouMe\s?Mart/gi, "ゆめマート"],
+  [/Max\s?valu/gi, "マックスバリュ"],
+  [/\bAEON\b/gi, "イオン"],
+  [/\bKOMERI\b/gi, "コメリ"]
+];
+// 「〇〇店 (〇〇)」のように同じチェーン名が括弧で重複する場合は括弧を外す
+function dropRedundantParen(name){
+  return name.replace(/[（(]([^（()）]{2,20})[)）]\s*$/, (m, inner)=>{
+    const rest = name.slice(0, name.length - m.length);
+    return norm(rest).includes(norm(inner)) ? "" : m;
+  }).trim();
+}
+
 export function cleanSpots(spots){
   const stat = {merged:0, droppedUnnamed:0, renamed:0, tidied:0, disambiguated:0, spread:0};
 
-  // ① 名称の整形（「A;B」→「A／B」、前後の空白除去）
+  // ① 名称の整形（「A;B」→「A／B」、表記ゆれの統一、前後の空白除去）
   spots.forEach(s=>{
     const before = s.name;
     s.name = s.name.replace(/\s*;\s*/g, "／").replace(/\s+/g, " ").trim();
+    for(const [pattern, to] of NAME_FIXES) s.name = s.name.replace(pattern, to);
+    s.name = dropRedundantParen(s.name.replace(/\s+/g, " ").trim());
     if(s.name !== before) stat.tidied++;
   });
 
