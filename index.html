@@ -708,7 +708,7 @@ function renderSupportList(){
     const g = GENRES[s.genre] || GENRES.other;
     const dot = `<i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${STATUS_COLORS[st]};margin-right:5px;"></i>`;
     return `<div class="post supportItem" data-i="${i}" style="cursor:pointer;">
-      <div>${dot}<b>${g.emoji} ${esc(s.name)}</b><span class="area" style="color:var(--c-sub);font-size:.75rem;margin-left:6px;">${esc(areaOf(s.lat, s.lng))}</span></div>
+      <div>${dot}<b>${g.emoji} ${esc(s.name)}</b><span class="area" style="color:var(--c-sub);font-size:.75rem;margin-left:6px;">${esc(areaOf(s.lat, s.lng, s.name))}</span></div>
       <div style="margin-top:2px;">${esc(latest.text)}</div>
       <div class="meta">${esc(latest.name)||"匿名"} ｜ ${rel(latest.time)}${n>1?`｜💬${n}件`:""}</div>
     </div>`;
@@ -974,9 +974,24 @@ const AREAS = [
   ["水俣市",   32.15, 130.30, 32.30, 130.55],
   ["人吉市",   32.15, 130.68, 32.35, 130.85]
 ];
-function areaOf(lat, lng){
-  for(const [name, s, w, n, e] of AREAS){
-    if(lat >= s && lat <= n && lng >= w && lng <= e) return name;
+// 施設名に市町村名が含まれていればそれを優先（境界付近の誤判定を防ぐ）
+const NAME_AREAS = ["宇土","宇城","八代","氷川","熊本","嘉島","益城","美里","御船","甲佐",
+  "上天草","天草","芦北","津奈木","水俣","人吉","松橋","小川","不知火","三角","豊野",
+  "鏡","千丁","坂本","東陽","日奈久","竜北","宮原"];
+const NAME_TO_CITY = {松橋:"宇城市", 小川:"宇城市", 不知火:"宇城市", 三角:"宇城市", 豊野:"宇城市",
+  鏡:"八代市", 千丁:"八代市", 坂本:"八代市", 東陽:"八代市", 日奈久:"八代市",
+  竜北:"氷川町", 宮原:"氷川町"};
+function areaOf(lat, lng, name){
+  if(name){
+    for(const w of NAME_AREAS){
+      if(name.includes(w)){
+        if(NAME_TO_CITY[w]) return NAME_TO_CITY[w];
+        return w + (["氷川","嘉島","益城","美里","御船","甲佐","芦北","津奈木"].includes(w) ? "町" : "市");
+      }
+    }
+  }
+  for(const [nm, s, w, n, e] of AREAS){
+    if(lat >= s && lat <= n && lng >= w && lng <= e) return nm;
   }
   return "";
 }
@@ -1001,7 +1016,7 @@ function renderSuggest(q){
     const g = GENRES[s.genre] || GENRES.other;
     const n = spotPosts(s.id).length;
     return `<div class="sgItem" data-i="${i}">${g.emoji} ${esc(s.name)}` +
-           `<span class="area">${esc(areaOf(s.lat, s.lng))}</span>` +
+           `<span class="area">${esc(areaOf(s.lat, s.lng, s.name))}</span>` +
            (n ? `<span class="area">💬${n}</span>` : "") + `</div>`;
   }).join("");
   suggestBox.style.display = "block";
