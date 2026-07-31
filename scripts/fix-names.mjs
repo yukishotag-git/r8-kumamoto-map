@@ -31,7 +31,28 @@ async function reverseNominatim(lat, lng){
   }catch(e){ return null; }
 }
 
-const baseName = n => n.replace(TAG, "").replace(/\s+/g, " ").trim();
+const baseName = n => { TAG.lastIndex = 0; return n.replace(TAG, "").replace(/\s+/g, " ").trim(); };
+
+// 座標からおおよその市町村名（同名の区別に使う）
+const AREAS = [
+  ["宇土市",32.63,130.55,32.72,130.72], ["宇城市",32.56,130.44,32.70,130.78],
+  ["氷川町",32.54,130.62,32.61,130.78], ["八代市",32.38,130.53,32.62,130.92],
+  ["嘉島町",32.70,130.70,32.78,130.79], ["益城町",32.75,130.78,32.90,130.95],
+  ["美里町",32.55,130.72,32.68,130.90], ["御船町",32.66,130.75,32.80,130.95],
+  ["甲佐町",32.58,130.75,32.70,130.90], ["上天草市",32.42,130.20,32.62,130.48],
+  ["天草市",32.15,129.95,32.62,130.30], ["芦北町",32.20,130.45,32.40,130.75],
+  ["水俣市",32.15,130.30,32.30,130.55], ["人吉市",32.15,130.68,32.35,130.85],
+  ["玉名市",32.87,130.50,33.05,130.75], ["荒尾市",32.95,130.40,33.08,130.55],
+  ["菊池市",32.90,130.75,33.10,131.05], ["合志市",32.85,130.65,32.98,130.82],
+  ["大津町",32.85,130.85,33.00,131.05], ["菊陽町",32.83,130.75,32.93,130.90],
+  ["山都町",32.60,130.95,32.85,131.25], ["熊本市",32.68,130.55,33.00,130.90]
+];
+function areaOf(lat, lng){
+  for(const [nm, s, w, n, e] of AREAS){
+    if(lat >= s && lat <= n && lng >= w && lng <= e) return nm;
+  }
+  return "";
+}
 const norm = s => s.replace(/[\s　（）()・\-ー−]/g, "");
 // 方角（同じ町名で重複した場合の区別に使う）
 function bearing(from, to){
@@ -49,14 +70,24 @@ for(const extra of ["data/manual-spots.json", "data/overture-spots.json"]){
 }
 
 // ① 対象を集める
+//    (a) 「#1234」のような識別子が付いているもの
+//    (b) ファイルをまたいで名前が重複しているもの（どちらも町名を付けて区別する）
 const files = [];
-const jobs = [];
 for(const path of targets){
-  const json = JSON.parse(await readFile(path, "utf-8"));
-  files.push({path, json});
-  json.spots.forEach(s=>{ if(TAG.test(s.name)){ TAG.lastIndex = 0; jobs.push(s); } TAG.lastIndex = 0; });
+  files.push({path, json: JSON.parse(await readFile(path, "utf-8"))});
 }
-console.log(`識別子付きの拠点: ${jobs.length}件を町名に置き換えます\n`);
+const everySpot = files.flatMap(f => f.json.spots);
+
+const hasTag = s => { TAG.lastIndex = 0; const r = TAG.test(s.name); TAG.lastIndex = 0; return r; };
+const plainCount = new Map();
+everySpot.forEach(s=>{
+  const n = baseName(s.name);
+  plainCount.set(n, (plainCount.get(n) || 0) + 1);
+});
+
+const jobs = everySpot.filter(s => hasTag(s) || plainCount.get(baseName(s.name)) > 1);
+console.log(`町名を付ける対象: ${jobs.length}件` +
+  `（識別子付き ${everySpot.filter(hasTag).length}件 / 同名 ${jobs.length - everySpot.filter(hasTag).length}件）\n`);
 
 // ② 逆ジオコーディング（近い地点は結果を使い回して回数を減らす）
 const cache = new Map();
@@ -77,12 +108,12 @@ for(const s of jobs){
 console.log(`町名を取得できたもの: ${ok}/${jobs.length}件\n`);
 
 // ③ 名前を組み立てる
-const allSpots = files.flatMap(f => f.json.spots);
+//    対象外（そのまま残る名前）と衝突しないようにする
+const jobSet = new Set(jobs);
 const nameCount = new Map();
-allSpots.forEach(s=>{
-  const n = TAG.test(s.name) ? null : s.name;
-  TAG.lastIndex = 0;
-  if(n) nameCount.set(n, (nameCount.get(n) || 0) + 1);
+everySpot.forEach(s=>{
+  if(jobSet.has(s)) return;
+  nameCount.set(s.name, (nameCount.get(s.name) || 0) + 1);
 });
 
 const groups = new Map();          // 新しい名前 → 該当スポット
@@ -101,13 +132,17 @@ for(const [newName, list] of groups){
     renamed++;
     continue;
   }
-  // 同じ町名に複数ある場合は方角で区別する
+  // 同じ町名に複数ある場合は、市町村名 → 方角 → 連番 の順で区別する
   const cx = list.reduce((a, s)=>a + s.lat, 0) / list.length;
   const cy = list.reduce((a, s)=>a + s.lng, 0) / list.length;
   const used = new Set();
   list.forEach((s, i)=>{
-    let cand = `${newName}（${bearing({lat:cx, lng:cy}, s)}）`;
-    if(used.has(cand) || nameCount.has(cand)) cand = `${newName}（${i + 1}）`;
+    const city = areaOf(s.lat, s.lng);
+    let cand = city && !newName.includes(city) ? `${newName} ${city}` : newName;
+    if(used.has(cand) || nameCount.has(cand)){
+      cand = `${cand}（${bearing({lat:cx, lng:cy}, s)}）`;
+    }
+    if(used.has(cand) || nameCount.has(cand)) cand = `${cand}（${i + 1}）`;
     used.add(cand);
     s.name = cand;
     renamed++;
