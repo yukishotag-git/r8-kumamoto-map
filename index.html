@@ -31,12 +31,15 @@
   *{box-sizing:border-box; margin:0; padding:0;}
   html,body{height:100%;}
   body{font-family:"Hiragino Sans","Yu Gothic","Meiryo",sans-serif; color:var(--c-text); background:var(--c-bg); display:flex; flex-direction:column;}
-  header{background:var(--c-main); color:#fff; padding:10px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+  header{background:var(--c-main); color:#fff; padding:10px 16px; display:flex; align-items:center; gap:12px;
+         flex-wrap:wrap; position:relative;}
   header h1{font-size:1.05rem; font-weight:700;}
   header .note{font-size:.7rem; opacity:.85;}
   #demoBanner{display:none; background:#e67e22; color:#fff; font-size:.75rem; padding:5px 12px; text-align:center;}
-  #tabs{margin-left:auto; display:flex; gap:6px; position:relative;}
-  #menuPop{display:none; position:absolute; top:100%; right:0; margin-top:6px; background:#fff; color:var(--c-text);
+  #tabs{margin-left:auto; display:flex; gap:6px;}
+  #menuBtn{flex:0 0 auto;}
+  /* メニューはヘッダー直下に出す（タブの横スクロール領域に入れると切れてしまうため） */
+  #menuPop{display:none; position:absolute; top:100%; right:8px; margin-top:4px; background:#fff; color:var(--c-text);
            border:1px solid var(--c-border); border-radius:10px; box-shadow:0 4px 16px rgba(0,0,0,.25);
            z-index:3000; min-width:230px; overflow:hidden;}
   .menuItem{display:block; width:100%; text-align:left; background:none; border:none; padding:12px 14px;
@@ -158,8 +161,8 @@
     header{padding:6px 10px 8px; gap:4px; flex-wrap:wrap; align-items:center;}
     header .note{display:none;}
     header h1{font-size:.92rem; white-space:nowrap; width:100%;}
-    /* ボタンが増えたため横スクロール可能に（読みやすさを維持） */
-    #tabs{margin-left:0; width:100%; gap:5px; flex-wrap:nowrap; overflow-x:auto; padding-bottom:2px;
+    /* タブは横スクロール、メニューボタンは右端に固定して常に押せるようにする */
+    #tabs{margin-left:0; flex:1; min-width:0; gap:5px; flex-wrap:nowrap; overflow-x:auto; padding-bottom:2px;
           scrollbar-width:none; -webkit-overflow-scrolling:touch;}
     #tabs::-webkit-scrollbar{display:none;}
     .tabBtn{padding:7px 9px; font-size:.78rem; white-space:nowrap; flex:0 0 auto; text-align:center;
@@ -168,8 +171,9 @@
     .tabBtn.help{background:rgba(255,140,110,.35); border-color:#ffb3a0;}
     .tabBtn.help.active{background:var(--c-accent);}
     .tabBtn .lbl{display:none;}   /* スマホでは短縮ラベル */
-    .tabBtn.icon{flex:0 0 auto; padding:7px 10px; font-size:1rem;}
-    #menuPop{position:fixed; top:auto; right:8px;}
+    .tabBtn.icon{flex:0 0 auto; padding:7px 11px; font-size:1.05rem;}
+    #menuBtn{margin-left:4px; background:rgba(255,255,255,.22); border-color:rgba(255,255,255,.55);}
+    #menuPop{right:6px; min-width:210px;}
     #layout{flex-direction:column;}
     #mapWrap{flex:none !important; height:48vh; height:48dvh; width:100%;}
     #sidebar{width:100%; max-width:100%; flex:1; border-left:none; border-top:1px solid var(--c-border); display:block; overflow-y:auto;}
@@ -186,13 +190,13 @@
     <button class="tabBtn" id="tabFeed">📝 マップ投稿<span class="lbl">一覧</span></button>
     <button class="tabBtn help" id="tabPost">📣 フリー投稿</button>
     <button class="tabBtn" id="tabLinks">🏛<span class="lbl"> 公式</span>リンク<span class="lbl">集</span></button>
-    <button class="tabBtn icon" id="menuBtn" title="その他メニュー">☰</button>
-    <div id="menuPop">
-      <button class="menuItem" id="miShare">📱 このサイトを共有（QR）</button>
-      <button class="menuItem" id="miAuthor">✉ 管理者へ</button>
-      <button class="menuItem" id="miReload">⟳ 最新の情報に更新</button>
-    </div>
   </nav>
+  <button class="tabBtn icon" id="menuBtn" title="その他メニュー">☰</button>
+  <div id="menuPop">
+    <button class="menuItem" id="miShare">📱 このサイトを共有（QR）</button>
+    <button class="menuItem" id="miAuthor">✉ 管理者へ</button>
+    <button class="menuItem" id="miReload">⟳ 最新の情報に更新</button>
+  </div>
 </header>
 <div id="demoBanner">⚠ デモモード：Firebase未設定のため、投稿はこの画面内のみで保存されません。</div>
 
