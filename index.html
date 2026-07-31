@@ -81,7 +81,10 @@
   #searchBox{width:100%; padding:9px 12px; font-size:16px; border:1px solid var(--c-border); border-radius:8px;}
   #searchSuggest{display:none; position:absolute; left:0; right:0; top:100%; z-index:1200;
                  background:#fff; border:1px solid var(--c-border); border-radius:0 0 8px 8px;
-                 box-shadow:0 4px 14px rgba(0,0,0,.18); max-height:270px; overflow-y:auto;}
+                 box-shadow:0 4px 14px rgba(0,0,0,.18); max-height:60vh; overflow-y:auto;
+                 -webkit-overflow-scrolling:touch; overscroll-behavior:contain;}
+  .sgHead{position:sticky; top:0; background:#f4f2ec; border-bottom:1px solid var(--c-border);
+          padding:5px 12px; font-size:.72rem; color:var(--c-sub);}
   .sgItem{padding:9px 12px; font-size:.86rem; cursor:pointer; border-top:1px solid #f0eee8;}
   .sgItem:first-child{border-top:none;}
   .sgItem:hover{background:#f1efe9;}
@@ -993,24 +996,33 @@ function hideSuggest(){ suggestBox.style.display = "none"; }
 function renderSuggest(q){
   const query = q.trim().toLowerCase();
   if(!query){ hideSuggest(); return; }
-  const hits = allSpots()
-    .filter(s=>s.name.toLowerCase().includes(query))
-    .slice(0, 200);
-  // 投稿がある拠点を先に、それ以外は名前順
+  // スペース区切りの複数語に対応（すべて含むものを候補にする）。
+  // 「ローソン 松橋」でも「ローソン松橋」でもヒットする。
+  const words = query.split(/[\s　]+/).filter(Boolean);
+  const squashed = query.replace(/[\s　]+/g, "");
+  const hits = allSpots().filter(s=>{
+    const name = s.name.toLowerCase();
+    if(words.every(w=>name.includes(w))) return true;
+    return name.replace(/[\s　]+/g, "").includes(squashed);
+  });
+  // 投稿がある拠点を先に、それ以外は名前の短い順
   hits.sort((a,b)=>{
     const pa = spotPosts(a.id).length, pb = spotPosts(b.id).length;
     if(pa !== pb) return pb - pa;
     return a.name.length - b.name.length;
   });
-  const list = hits.slice(0, 12);
-  if(!list.length){ hideSuggest(); return; }
-  suggestBox.innerHTML = list.map((s,i)=>{
-    const g = GENRES[s.genre] || GENRES.other;
-    const n = spotPosts(s.id).length;
-    return `<div class="sgItem" data-i="${i}">${g.emoji} ${esc(s.name)}` +
-           `<span class="area">${esc(areaOf(s.lat, s.lng, s.name))}</span>` +
-           (n ? `<span class="area">💬${n}</span>` : "") + `</div>`;
-  }).join("");
+  if(!hits.length){ hideSuggest(); return; }
+  const list = hits.slice(0, 500);   // 全件スクロール表示（極端に多い場合のみ上限）
+  suggestBox.innerHTML =
+    `<div class="sgHead">${hits.length}件${hits.length > list.length ? `（上位${list.length}件を表示）` : ""}</div>` +
+    list.map((s,i)=>{
+      const g = GENRES[s.genre] || GENRES.other;
+      const n = spotPosts(s.id).length;
+      return `<div class="sgItem" data-i="${i}">${g.emoji} ${esc(s.name)}` +
+             `<span class="area">${esc(areaOf(s.lat, s.lng, s.name))}</span>` +
+             (n ? `<span class="area">💬${n}</span>` : "") + `</div>`;
+    }).join("");
+  suggestBox.scrollTop = 0;
   suggestBox.style.display = "block";
   suggestBox.querySelectorAll(".sgItem").forEach(el=>{
     el.onclick = ()=>{
