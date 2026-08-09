@@ -1,5 +1,5 @@
 {
- "generated": "2026-08-02T20:57:23.639Z",
+ "generated": "2026-08-09T20:10:29.284Z",
  "files": [
   {
    "file": "core.json",
@@ -9,7 +9,7 @@
     32.6704,
     130.7543
    ],
-   "count": 271
+   "count": 272
   },
   {
    "file": "kumamoto-city.json",
@@ -29,7 +29,7 @@
     33.0168,
     130.9076
    ],
-   "count": 375
+   "count": 376
   },
   {
    "file": "central.json",
@@ -59,7 +59,7 @@
     32.3669,
     130.6105
    ],
-   "count": 53
+   "count": 54
   },
   {
    "file": "amakusa.json",
