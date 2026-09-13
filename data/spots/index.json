@@ -1,5 +1,5 @@
 {
- "generated": "2026-09-06T19:59:36.253Z",
+ "generated": "2026-09-13T20:32:16.964Z",
  "files": [
   {
    "file": "core.json",
@@ -29,17 +29,17 @@
     33.0168,
     130.9076
    ],
-   "count": 388
+   "count": 391
   },
   {
    "file": "central.json",
    "bbox": [
-    32.575,
-    130.5246,
-    32.7059,
-    130.9228
+    null,
+    null,
+    null,
+    null
    ],
-   "count": 66
+   "count": 0
   },
   {
    "file": "east.json",
@@ -75,11 +75,11 @@
    "file": "hitoyoshi.json",
    "bbox": [
     32.1901,
-    130.6458,
+    130.6459,
     32.4377,
     131.0094
    ],
-   "count": 140
+   "count": 132
   }
  ]
 }
