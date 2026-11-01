@@ -1,15 +1,15 @@
 {
- "generated": "2026-10-18T20:14:58.634Z",
+ "generated": "2026-11-01T22:34:16.530Z",
  "files": [
   {
    "file": "core.json",
    "bbox": [
-    32.4072,
+    32.4135,
     130.4662,
-    32.67,
+    32.6704,
     130.7543
    ],
-   "count": 288
+   "count": 272
   },
   {
    "file": "kumamoto-city.json",
@@ -29,7 +29,7 @@
     33.0168,
     130.9076
    ],
-   "count": 391
+   "count": 393
   },
   {
    "file": "central.json",
@@ -44,12 +44,12 @@
   {
    "file": "east.json",
    "bbox": [
-    32.6491,
-    130.7377,
-    32.8352,
-    131.1632
+    null,
+    null,
+    null,
+    null
    ],
-   "count": 75
+   "count": 0
   },
   {
    "file": "south.json",
@@ -74,12 +74,12 @@
   {
    "file": "hitoyoshi.json",
    "bbox": [
-    32.1901,
-    130.6458,
-    32.4377,
-    131.0094
+    null,
+    null,
+    null,
+    null
    ],
-   "count": 140
+   "count": 0
   }
  ]
 }
